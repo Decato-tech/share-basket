@@ -27,6 +27,13 @@ export function AppShell() {
   const [qName, setQName] = useState("");
   const [qQty, setQQty] = useState("");
   const [qStore, setQStore] = useState<string>("__none");
+  const [qCustomStore, setQCustomStore] = useState("");
+  const [qCategory, setQCategory] = useState<string>("Other");
+  const [qCategoryTouched, setQCategoryTouched] = useState(false);
+
+  useEffect(() => {
+    if (!qCategoryTouched) setQCategory(suggestCategory(qName));
+  }, [qName, qCategoryTouched]);
 
   const refresh = useCallback(async () => {
     try {
@@ -71,9 +78,14 @@ export function AppShell() {
 
   async function quickAdd() {
     if (!household || !qName.trim()) return;
+    if (qStore === "Other" && !qCustomStore.trim()) {
+      toast.error("Please enter a custom store name");
+      return;
+    }
     const name = qName.trim();
-    const category = suggestCategory(name);
-    const store = qStore === "__none" ? null : qStore;
+    const category = qCategory;
+    const store =
+      qStore === "__none" ? null : qStore === "Other" ? qCustomStore.trim() : qStore;
     const { error } = await supabase.from("grocery_items").insert({
       household_id: household.id,
       name,
@@ -83,7 +95,8 @@ export function AppShell() {
       added_by: (await supabase.auth.getUser()).data.user!.id,
     });
     if (error) return toast.error(error.message);
-    setQName(""); setQQty("");
+    setQName(""); setQQty(""); setQCustomStore("");
+    setQCategoryTouched(false);
   }
 
   async function toggleCheck(item: GroceryItem) {
@@ -136,8 +149,13 @@ export function AppShell() {
   }
 
   async function deleteItem(id: string) {
+    const prev = items;
+    setItems((cur) => cur.filter((i) => i.id !== id));
     const { error } = await supabase.from("grocery_items").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) {
+      setItems(prev);
+      toast.error(error.message);
+    }
   }
 
   async function clearCompleted() {
@@ -218,10 +236,27 @@ export function AppShell() {
               </SelectContent>
             </Select>
           </div>
+          {qStore === "Other" && (
+            <Input
+              placeholder="Custom store name"
+              value={qCustomStore}
+              onChange={(e) => setQCustomStore(e.target.value)}
+              className="h-10 rounded-xl"
+            />
+          )}
           {qName.trim() && (
-            <p className="text-xs text-muted-foreground px-1">
-              Suggested: <span className="font-medium text-foreground">{suggestCategory(qName)}</span>
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground px-1 shrink-0">Category</span>
+              <Select
+                value={qCategory}
+                onValueChange={(v) => { setQCategory(v); setQCategoryTouched(true); }}
+              >
+                <SelectTrigger className="h-9 rounded-xl flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
 
