@@ -263,7 +263,7 @@ export function AppShell() {
         {/* Search */}
         <div className="relative">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items" className="pl-9 h-10 rounded-xl" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("search_items")} className="pl-9 h-10 rounded-xl" />
           {search && (
             <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1">
               <X className="h-4 w-4 text-muted-foreground" />
@@ -274,9 +274,9 @@ export function AppShell() {
         {/* View tabs */}
         <div className="flex gap-1 p-1 bg-muted rounded-xl">
           {([
-            { v: "all", l: "All", i: ListChecks },
-            { v: "category", l: "By category", i: Tag },
-            { v: "store", l: "By store", i: Store },
+            { v: "all", l: t("all_items"), i: ListChecks },
+            { v: "category", l: t("by_category"), i: Tag },
+            { v: "store", l: t("by_store"), i: Store },
           ] as const).map(({ v, l, i: Icon }) => (
             <button
               key={v}
@@ -291,8 +291,8 @@ export function AppShell() {
         {/* Items */}
         {active.length === 0 && done.length === 0 ? (
           <EmptyState
-            title="Your list is empty"
-            desc="Add your first item using the quick add bar above."
+            title={t("list_empty_title")}
+            desc={t("list_empty_desc")}
           />
         ) : view === "all" ? (
           <ItemList items={active} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} />
@@ -301,7 +301,11 @@ export function AppShell() {
             {Object.keys(groups).sort().map((g) => (
               <div key={g}>
                 <div className="flex items-center justify-between px-1 mb-1.5">
-                  <h2 className="text-sm font-semibold">{g}</h2>
+                  <h2 className="text-sm font-semibold">
+                    {view === "category"
+                      ? catLabel(g)
+                      : g === "__any_store__" ? t("any_store") : storeLabel(g)}
+                  </h2>
                   <span className="text-xs text-muted-foreground">{groups[g].length}</span>
                 </div>
                 <ItemList items={groups[g]} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} />
@@ -314,8 +318,8 @@ export function AppShell() {
         {done.length > 0 && (
           <div className="pt-2">
             <div className="flex items-center justify-between px-1 mb-1.5">
-              <h2 className="text-sm font-semibold text-muted-foreground">Completed · {done.length}</h2>
-              <Button variant="ghost" size="sm" onClick={clearCompleted} className="text-xs h-8 rounded-lg">Clear completed</Button>
+              <h2 className="text-sm font-semibold text-muted-foreground">{t("completed")} · {done.length}</h2>
+              <Button variant="ghost" size="sm" onClick={clearCompleted} className="text-xs h-8 rounded-lg">{t("clear_completed")}</Button>
             </div>
             <ItemList items={done} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} faded />
           </div>
@@ -326,7 +330,7 @@ export function AppShell() {
       <button
         onClick={() => { setEditing(null); setDialogOpen(true); }}
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition"
-        aria-label="New item"
+        aria-label={t("new_item")}
       >
         <Plus className="h-6 w-6" />
       </button>
@@ -362,8 +366,11 @@ function ItemList({
   onEdit: (i: GroceryItem) => void;
   faded?: boolean;
 }) {
+  const { t } = useT();
+  const catLabel = useCategoryLabel();
+  const storeLabel = useStoreLabel();
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground text-center py-4">No items</p>;
+    return <p className="text-sm text-muted-foreground text-center py-4">{t("no_items")}</p>;
   }
   return (
     <ul className="bg-card rounded-2xl border shadow-sm divide-y overflow-hidden">
@@ -381,8 +388,8 @@ function ItemList({
             <div className="text-xs text-muted-foreground truncate flex gap-1.5">
               {it.quantity && <span>{it.quantity}</span>}
               {it.quantity && (it.category || it.store) && <span>·</span>}
-              {it.category && <span>{it.category}</span>}
-              {it.store && <span>· {it.store}</span>}
+              {it.category && <span>{catLabel(it.category)}</span>}
+              {it.store && <span>· {storeLabel(it.store)}</span>}
             </div>
           </button>
         </li>
