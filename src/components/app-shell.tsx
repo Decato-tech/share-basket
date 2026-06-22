@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export function AppShell() {
   const [loading, setLoading] = useState(true);
   const [household, setHousehold] = useState<Household | null>(null);
   const [items, setItems] = useState<GroceryItem[]>([]);
+  const itemsRequestIdRef = useRef(0);
   const [view, setView] = useState<ViewMode>("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<GroceryItem | null>(null);
@@ -39,33 +40,75 @@ export function AppShell() {
     if (!qCategoryTouched) setQCategory(suggestCategory(qName));
   }, [qName, qCategoryTouched]);
 
+  const syncItems = useCallback(async (householdId: string) => {
+    const requestId = ++itemsRequestIdRef.current;
+    try {
+      const nextItems = await fetchItems(householdId);
+      if (requestId === itemsRequestIdRef.current) setItems(nextItems);
+      return true;
+    } catch (e) {
+      if (requestId === itemsRequestIdRef.current) {
+        toast.error((e as Error).message, { id: "grocery-sync-error" });
+      }
+      return false;
+    }
+  }, []);
+
+  const applyServerItem = useCallback((item: GroceryItem) => {
+    itemsRequestIdRef.current += 1;
+    setItems((current) =>
+      [item, ...current.filter((candidate) => candidate.id !== item.id)]
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    );
+  }, []);
+
+  const removeLocalItems = useCallback((shouldRemove: (item: GroceryItem) => boolean) => {
+    itemsRequestIdRef.current += 1;
+    setItems((current) => current.filter((item) => !shouldRemove(item)));
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
       const h = await fetchMyHousehold();
       setHousehold(h);
-      if (h) setItems(await fetchItems(h.id));
+      if (h) await syncItems(h.id);
+      else {
+        itemsRequestIdRef.current += 1;
+        setItems([]);
+      }
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncItems]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
   // Realtime
   useEffect(() => {
     if (!household) return;
+    let connectionErrorShown = false;
     const channel = supabase
       .channel(`items-${household.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "grocery_items", filter: `household_id=eq.${household.id}` },
-        () => fetchItems(household.id).then(setItems).catch(() => {}),
+        () => { void syncItems(household.id); },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          connectionErrorShown = false;
+          void syncItems(household.id);
+          return;
+        }
+        if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !connectionErrorShown) {
+          connectionErrorShown = true;
+          toast.error(t("live_sync_unavailable"), { id: "grocery-realtime-error" });
+        }
+      });
     return () => { supabase.removeChannel(channel); };
-  }, [household]);
+  }, [household, syncItems, t]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -90,34 +133,37 @@ export function AppShell() {
     const category = qCategory;
     const store =
       qStore === "__none" ? null : qStore === "Other" ? qCustomStore.trim() : qStore;
-    const { error } = await supabase.from("grocery_items").insert({
+    const { data, error } = await supabase.from("grocery_items").insert({
       household_id: household.id,
       name,
       quantity: qQty.trim() || null,
       category,
       store,
       added_by: (await supabase.auth.getUser()).data.user!.id,
-    });
+    }).select("*").single();
     if (error) return toast.error(error.message);
+    applyServerItem(data as GroceryItem);
     setQName(""); setQQty(""); setQCustomStore("");
     setQCategoryTouched(false);
   }
 
   async function toggleCheck(item: GroceryItem) {
-    const uid = (await supabase.auth.getUser()).data.user!.id;
     const next = !item.checked;
-    const { error } = await supabase.from("grocery_items").update({
+    const { data, error } = await supabase.from("grocery_items").update({
       checked: next,
-      checked_by: next ? uid : null,
-      checked_at: next ? new Date().toISOString() : null,
-    }).eq("id", item.id);
+    }).eq("id", item.id).select("*").single();
     if (error) return toast.error(error.message);
+    applyServerItem(data as GroceryItem);
     if (next) {
       toast(t("checked_off"), {
         action: {
           label: t("undo"),
           onClick: async () => {
-            await supabase.from("grocery_items").update({ checked: false, checked_by: null, checked_at: null }).eq("id", item.id);
+            const { data: undone, error: undoError } = await supabase
+              .from("grocery_items").update({ checked: false }).eq("id", item.id)
+              .select("*").single();
+            if (undoError) return toast.error(undoError.message);
+            applyServerItem(undone as GroceryItem);
           },
         },
         icon: <Undo2 className="h-4 w-4" />,
@@ -129,17 +175,18 @@ export function AppShell() {
     if (!household) return;
     const store = draft.store === "Other" ? (draft.custom_store.trim() || "Other") : (draft.store || null);
     if (draft.id) {
-      const { error } = await supabase.from("grocery_items").update({
+      const { data, error } = await supabase.from("grocery_items").update({
         name: draft.name.trim(),
         quantity: draft.quantity.trim() || null,
         category: draft.category,
         store,
         notes: draft.notes.trim() || null,
-      }).eq("id", draft.id);
+      }).eq("id", draft.id).select("*").single();
       if (error) toast.error(error.message);
+      else applyServerItem(data as GroceryItem);
     } else {
       const uid = (await supabase.auth.getUser()).data.user!.id;
-      const { error } = await supabase.from("grocery_items").insert({
+      const { data, error } = await supabase.from("grocery_items").insert({
         household_id: household.id,
         name: draft.name.trim(),
         quantity: draft.quantity.trim() || null,
@@ -147,16 +194,18 @@ export function AppShell() {
         store,
         notes: draft.notes.trim() || null,
         added_by: uid,
-      });
+      }).select("*").single();
       if (error) toast.error(error.message);
+      else applyServerItem(data as GroceryItem);
     }
   }
 
   async function deleteItem(id: string) {
     const prev = items;
-    setItems((cur) => cur.filter((i) => i.id !== id));
+    removeLocalItems((item) => item.id === id);
     const { error } = await supabase.from("grocery_items").delete().eq("id", id);
     if (error) {
+      itemsRequestIdRef.current += 1;
       setItems(prev);
       toast.error(error.message);
     }
@@ -166,7 +215,10 @@ export function AppShell() {
     if (!household) return;
     const { error } = await supabase.from("grocery_items").delete().eq("household_id", household.id).eq("checked", true);
     if (error) toast.error(error.message);
-    else toast.success(t("cleared"));
+    else {
+      removeLocalItems((item) => item.checked);
+      toast.success(t("cleared"));
+    }
   }
 
   if (loading) {
