@@ -64,6 +64,10 @@ const dict = {
   cleared: { en: "Completed items cleared", nl: "Afgeronde items gewist" },
   checked_off: { en: "Checked off", nl: "Afgevinkt" },
   undo: { en: "Undo", nl: "Ongedaan maken" },
+  live_sync_unavailable: {
+    en: "Live sync is temporarily unavailable. Your changes will still be saved.",
+    nl: "Live synchronisatie is tijdelijk niet beschikbaar. Je wijzigingen worden wel opgeslagen.",
+  },
   no_items: { en: "No items", nl: "Geen producten" },
   new_item: { en: "New item", nl: "Nieuw product" },
   edit_item: { en: "Edit item", nl: "Product bewerken" },
