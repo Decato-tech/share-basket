@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CATEGORIES, STORES, suggestCategory } from "@/lib/categories";
 import type { GroceryItem } from "@/lib/grocery";
 import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
+import { toast } from "sonner";
 
 export type EditDraft = {
   id?: string;
@@ -29,8 +30,8 @@ export function ItemEditDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   item: GroceryItem | null;
-  onSave: (draft: EditDraft) => Promise<void>;
-  onDelete?: (id: string) => Promise<void>;
+  onSave: (draft: EditDraft) => Promise<boolean>;
+  onDelete?: (id: string) => Promise<boolean>;
 }) {
   const { t } = useT();
   const catLabel = useCategoryLabel();
@@ -39,6 +40,7 @@ export function ItemEditDialog({
     name: "", quantity: "", category: "Other", store: "", custom_store: "", notes: "",
   });
   const [touchedCategory, setTouchedCategory] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"save" | "delete" | null>(null);
 
   useEffect(() => {
     if (item) {
@@ -63,9 +65,33 @@ export function ItemEditDialog({
     setDraft((d) => ({ ...d, name, category: touchedCategory ? d.category : suggestCategory(name) }));
   }
 
+  async function save() {
+    if (pendingAction) return;
+    setPendingAction("save");
+    try {
+      if (await onSave(draft)) onOpenChange(false);
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function remove() {
+    if (!item || !onDelete || pendingAction) return;
+    setPendingAction("delete");
+    try {
+      if (await onDelete(item.id)) onOpenChange(false);
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl sm:max-w-md">
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!pendingAction) onOpenChange(nextOpen); }}>
+      <DialogContent className="rounded-2xl sm:max-w-md" aria-busy={pendingAction !== null}>
         <DialogHeader>
           <DialogTitle>{item ? t("edit_item") : t("new_item")}</DialogTitle>
         </DialogHeader>
@@ -109,14 +135,14 @@ export function ItemEditDialog({
         </div>
         <DialogFooter className="flex-row gap-2 sm:gap-2">
           {item && onDelete && (
-            <Button variant="destructive" onClick={() => onDelete(item.id).then(() => onOpenChange(false))} className="rounded-xl">
-              {t("delete")}
+            <Button variant="destructive" onClick={remove} disabled={pendingAction !== null} className="rounded-xl">
+              {pendingAction === "delete" ? t("please_wait") : t("delete")}
             </Button>
           )}
           <div className="flex-1" />
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">{t("cancel")}</Button>
-          <Button onClick={() => onSave(draft).then(() => onOpenChange(false))} disabled={!draft.name.trim()} className="rounded-xl">
-            {t("save")}
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pendingAction !== null} className="rounded-xl">{t("cancel")}</Button>
+          <Button onClick={save} disabled={!draft.name.trim() || pendingAction !== null} className="rounded-xl">
+            {pendingAction === "save" ? t("please_wait") : t("save")}
           </Button>
         </DialogFooter>
       </DialogContent>
