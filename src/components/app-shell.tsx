@@ -83,7 +83,7 @@ export function AppShell() {
   async function quickAdd() {
     if (!household || !qName.trim()) return;
     if (qStore === "Other" && !qCustomStore.trim()) {
-      toast.error("Please enter a custom store name");
+      toast.error(t("please_enter_custom_store"));
       return;
     }
     const name = qName.trim();
@@ -113,9 +113,9 @@ export function AppShell() {
     }).eq("id", item.id);
     if (error) return toast.error(error.message);
     if (next) {
-      toast("Checked off", {
+      toast(t("checked_off"), {
         action: {
-          label: "Undo",
+          label: t("undo"),
           onClick: async () => {
             await supabase.from("grocery_items").update({ checked: false, checked_by: null, checked_at: null }).eq("id", item.id);
           },
@@ -166,11 +166,11 @@ export function AppShell() {
     if (!household) return;
     const { error } = await supabase.from("grocery_items").delete().eq("household_id", household.id).eq("checked", true);
     if (error) toast.error(error.message);
-    else toast.success("Completed items cleared");
+    else toast.success(t("cleared"));
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">{t("loading")}</div>;
   }
 
   if (!household) {
@@ -182,7 +182,7 @@ export function AppShell() {
   if (view !== "all") {
     const key = view === "category" ? "category" : "store";
     for (const it of active) {
-      const k = (it[key] as string) || (view === "store" ? "Any store" : "Other");
+      const k = (it[key] as string) || (view === "store" ? "__any_store__" : "Other");
       (groups[k] ||= []).push(it);
     }
   }
@@ -199,7 +199,7 @@ export function AppShell() {
             </div>
             <div>
               <h1 className="font-semibold leading-tight">{household.name}</h1>
-              <p className="text-xs text-muted-foreground">{active.length} to buy · {done.length} done</p>
+              <p className="text-xs text-muted-foreground">{active.length} {t("to_buy")} · {done.length} {t("done")}</p>
             </div>
           </div>
           <Link to="/settings">
@@ -215,7 +215,7 @@ export function AppShell() {
         <div className="bg-card rounded-2xl border shadow-sm p-3 space-y-2">
           <div className="flex gap-2">
             <Input
-              placeholder="Add an item…"
+              placeholder={t("add_item_placeholder")}
               value={qName}
               onChange={(e) => setQName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") quickAdd(); }}
@@ -227,22 +227,22 @@ export function AppShell() {
           </div>
           <div className="flex gap-2">
             <Input
-              placeholder="Qty"
+              placeholder={t("qty")}
               value={qQty}
               onChange={(e) => setQQty(e.target.value)}
               className="h-10 rounded-xl flex-1"
             />
             <Select value={qStore} onValueChange={setQStore}>
-              <SelectTrigger className="h-10 rounded-xl flex-1"><SelectValue placeholder="Store" /></SelectTrigger>
+              <SelectTrigger className="h-10 rounded-xl flex-1"><SelectValue placeholder={t("store")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none">Any store</SelectItem>
-                {STORES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                <SelectItem value="__none">{t("any_store")}</SelectItem>
+                {STORES.map((s) => <SelectItem key={s} value={s}>{storeLabel(s)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           {qStore === "Other" && (
             <Input
-              placeholder="Custom store name"
+              placeholder={t("custom_store")}
               value={qCustomStore}
               onChange={(e) => setQCustomStore(e.target.value)}
               className="h-10 rounded-xl"
@@ -250,14 +250,14 @@ export function AppShell() {
           )}
           {qName.trim() && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground px-1 shrink-0">Category</span>
+              <span className="text-xs text-muted-foreground px-1 shrink-0">{t("category")}</span>
               <Select
                 value={qCategory}
                 onValueChange={(v) => { setQCategory(v); setQCategoryTouched(true); }}
               >
                 <SelectTrigger className="h-9 rounded-xl flex-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{catLabel(c)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
