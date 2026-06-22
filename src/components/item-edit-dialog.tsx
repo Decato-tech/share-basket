@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CATEGORIES, STORES, suggestCategory } from "@/lib/categories";
 import type { GroceryItem } from "@/lib/grocery";
+import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
 
 export type EditDraft = {
   id?: string;
@@ -31,6 +32,9 @@ export function ItemEditDialog({
   onSave: (draft: EditDraft) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
 }) {
+  const { t } = useT();
+  const catLabel = useCategoryLabel();
+  const storeLabel = useStoreLabel();
   const [draft, setDraft] = useState<EditDraft>({
     name: "", quantity: "", category: "Other", store: "", custom_store: "", notes: "",
   });
@@ -63,56 +67,56 @@ export function ItemEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-2xl sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{item ? "Edit item" : "New item"}</DialogTitle>
+          <DialogTitle>{item ? t("edit_item") : t("new_item")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Product</Label>
-            <Input value={draft.name} onChange={(e) => changeName(e.target.value)} placeholder="e.g. Milk" autoFocus />
+            <Label>{t("product")}</Label>
+            <Input value={draft.name} onChange={(e) => changeName(e.target.value)} placeholder={t("product_placeholder")} autoFocus />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Quantity</Label>
-              <Input value={draft.quantity} onChange={(e) => setDraft({ ...draft, quantity: e.target.value })} placeholder="2, 500g…" />
+              <Label>{t("qty")}</Label>
+              <Input value={draft.quantity} onChange={(e) => setDraft({ ...draft, quantity: e.target.value })} placeholder={t("qty_placeholder")} />
             </div>
             <div className="space-y-1.5">
-              <Label>Category</Label>
+              <Label>{t("category")}</Label>
               <Select value={draft.category} onValueChange={(v) => { setDraft({ ...draft, category: v }); setTouchedCategory(true); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{catLabel(c)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Store</Label>
+            <Label>{t("store")}</Label>
             <Select value={draft.store || "__none"} onValueChange={(v) => setDraft({ ...draft, store: v === "__none" ? "" : v })}>
-              <SelectTrigger><SelectValue placeholder="Any store" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t("any_store")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none">Any store</SelectItem>
-                {STORES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                <SelectItem value="__none">{t("any_store")}</SelectItem>
+                {STORES.map((s) => <SelectItem key={s} value={s}>{storeLabel(s)}</SelectItem>)}
               </SelectContent>
             </Select>
             {draft.store === "Other" && (
-              <Input className="mt-2" placeholder="Custom store name" value={draft.custom_store} onChange={(e) => setDraft({ ...draft, custom_store: e.target.value })} />
+              <Input className="mt-2" placeholder={t("custom_store")} value={draft.custom_store} onChange={(e) => setDraft({ ...draft, custom_store: e.target.value })} />
             )}
           </div>
           <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Optional" rows={2} />
+            <Label>{t("notes")}</Label>
+            <Textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder={t("optional")} rows={2} />
           </div>
         </div>
         <DialogFooter className="flex-row gap-2 sm:gap-2">
           {item && onDelete && (
             <Button variant="destructive" onClick={() => onDelete(item.id).then(() => onOpenChange(false))} className="rounded-xl">
-              Delete
+              {t("delete")}
             </Button>
           )}
           <div className="flex-1" />
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">{t("cancel")}</Button>
           <Button onClick={() => onSave(draft).then(() => onOpenChange(false))} disabled={!draft.name.trim()} className="rounded-xl">
-            Save
+            {t("save")}
           </Button>
         </DialogFooter>
       </DialogContent>
