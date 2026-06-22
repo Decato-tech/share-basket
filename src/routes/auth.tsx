@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { ShoppingBasket } from "lucide-react";
+import { useT, type Lang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { t, lang, setLang } = useT();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,7 +48,7 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Account created — you're in!");
+        toast.success(t("account_created"));
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -63,12 +65,23 @@ function AuthPage() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-background">
       <Toaster />
       <div className="w-full max-w-sm">
+        <div className="flex justify-end mb-2">
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Lang)}
+            className="text-xs rounded-lg border bg-card px-2 py-1 text-muted-foreground"
+            aria-label={t("language")}
+          >
+            <option value="en">EN</option>
+            <option value="nl">NL</option>
+          </select>
+        </div>
         <div className="flex flex-col items-center mb-8">
           <div className="h-14 w-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
             <ShoppingBasket className="h-7 w-7" />
           </div>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight">Household Groceries</h1>
-          <p className="text-sm text-muted-foreground mt-1">Shared shopping, simply.</p>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight">{t("app_name")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("app_tagline")}</p>
         </div>
 
         <div className="bg-card rounded-2xl shadow-sm border p-6">
@@ -78,35 +91,45 @@ function AuthPage() {
               onClick={() => setMode("signin")}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${mode === "signin" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
             >
-              Sign in
+              {t("sign_in")}
             </button>
             <button
               type="button"
               onClick={() => setMode("signup")}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${mode === "signup" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
             >
-              Sign up
+              {t("sign_up")}
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
               <div className="space-y-1.5">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Your name" />
+                <Label htmlFor="name">{t("name")}</Label>
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("your_name")} />
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("email")}</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("password")}</Label>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" />
             </div>
             <Button type="submit" className="w-full h-11 rounded-xl" disabled={loading}>
-              {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+              {loading ? t("please_wait") : mode === "signin" ? t("sign_in") : t("create_account")}
             </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              {mode === "signin" ? t("no_account") : t("have_account")}{" "}
+              <button
+                type="button"
+                onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+                className="text-primary font-medium hover:underline"
+              >
+                {mode === "signin" ? t("sign_up") : t("sign_in")}
+              </button>
+            </p>
           </form>
         </div>
       </div>
