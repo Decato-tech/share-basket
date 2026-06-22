@@ -31,16 +31,16 @@ export type MemberProfile = {
 };
 
 export async function fetchMyHousehold(): Promise<Household | null> {
-  const { data: memberships, error: mErr } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from("household_members")
     .select("household_id")
-    .limit(1);
-  if (mErr) throw mErr;
-  if (!memberships?.length) return null;
+    .maybeSingle();
+  if (membershipError) throw membershipError;
+  if (!membership) return null;
   const { data, error } = await supabase
     .from("households")
     .select("*")
-    .eq("id", memberships[0].household_id)
+    .eq("id", membership.household_id)
     .single();
   if (error) throw error;
   return data as Household;
