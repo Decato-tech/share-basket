@@ -8,9 +8,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { ChevronLeft, Copy, LogOut } from "lucide-react";
 import { fetchMembers, fetchMyHousehold, type Household, type MemberProfile } from "@/lib/grocery";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useT, type Lang } from "@/lib/i18n";
 
 export function SettingsScreen() {
   const navigate = useNavigate();
+  const { t, lang, setLang } = useT();
   const [household, setHousehold] = useState<Household | null>(null);
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [name, setName] = useState("");
@@ -30,7 +33,7 @@ export function SettingsScreen() {
     if (!household || !name.trim() || name === household.name) return;
     const { error } = await supabase.from("households").update({ name: name.trim() }).eq("id", household.id);
     if (error) return toast.error(error.message);
-    toast.success("Saved");
+    toast.success(t("saved"));
     load();
   }
 
@@ -44,17 +47,17 @@ export function SettingsScreen() {
     const uid = (await supabase.auth.getUser()).data.user!.id;
     const { error } = await supabase.from("household_members").delete().eq("household_id", household.id).eq("user_id", uid);
     if (error) return toast.error(error.message);
-    toast.success("Left household");
+    toast.success(t("left_household"));
     navigate({ to: "/app" });
   }
 
   function copyCode() {
     if (!household) return;
     navigator.clipboard.writeText(household.invite_code);
-    toast.success("Invite code copied");
+    toast.success(t("invite_copied"));
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">{t("loading")}</div>;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -64,35 +67,46 @@ export function SettingsScreen() {
           <Link to="/app">
             <Button variant="ghost" size="icon" className="rounded-xl"><ChevronLeft className="h-5 w-5" /></Button>
           </Link>
-          <h1 className="font-semibold">Settings</h1>
+          <h1 className="font-semibold">{t("settings")}</h1>
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-4 pt-4 space-y-4">
+        <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-muted-foreground">{t("language")}</h2>
+          <Select value={lang} onValueChange={(v) => setLang(v as Lang)}>
+            <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">{t("english")}</SelectItem>
+              <SelectItem value="nl">{t("dutch")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </section>
+
         {household ? (
           <>
             <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
-              <h2 className="text-sm font-semibold text-muted-foreground">Household</h2>
+              <h2 className="text-sm font-semibold text-muted-foreground">{t("household")}</h2>
               <div className="space-y-1.5">
-                <Label>Name</Label>
+                <Label>{t("name")}</Label>
                 <div className="flex gap-2">
                   <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-xl" />
-                  <Button onClick={saveName} disabled={!name.trim() || name === household.name} className="rounded-xl">Save</Button>
+                  <Button onClick={saveName} disabled={!name.trim() || name === household.name} className="rounded-xl">{t("save")}</Button>
                 </div>
               </div>
             </section>
 
             <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
-              <h2 className="text-sm font-semibold text-muted-foreground">Invite code</h2>
+              <h2 className="text-sm font-semibold text-muted-foreground">{t("invite_code_label")}</h2>
               <button onClick={copyCode} className="w-full flex items-center justify-between rounded-xl bg-muted px-4 py-3 active:scale-[0.99] transition">
                 <span className="font-mono text-2xl tracking-widest font-semibold">{household.invite_code}</span>
                 <Copy className="h-5 w-5 text-muted-foreground" />
               </button>
-              <p className="text-xs text-muted-foreground">Share this code so others can join your household.</p>
+              <p className="text-xs text-muted-foreground">{t("invite_share_hint")}</p>
             </section>
 
             <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
-              <h2 className="text-sm font-semibold text-muted-foreground">Members · {members.length}</h2>
+              <h2 className="text-sm font-semibold text-muted-foreground">{t("household_members")} · {members.length}</h2>
               <ul className="divide-y">
                 {members.map((m) => (
                   <li key={m.user_id} className="py-2.5 flex items-center gap-3">
@@ -109,16 +123,16 @@ export function SettingsScreen() {
             </section>
 
             <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-2">
-              <Button variant="outline" onClick={leaveHousehold} className="w-full rounded-xl">Leave household</Button>
+              <Button variant="outline" onClick={leaveHousehold} className="w-full rounded-xl">{t("leave_household")}</Button>
               <Button variant="destructive" onClick={signOut} className="w-full rounded-xl">
-                <LogOut className="h-4 w-4 mr-2" /> Sign out
+                <LogOut className="h-4 w-4 mr-2" /> {t("sign_out")}
               </Button>
             </section>
           </>
         ) : (
           <section className="bg-card border rounded-2xl shadow-sm p-4">
             <Button variant="destructive" onClick={signOut} className="w-full rounded-xl">
-              <LogOut className="h-4 w-4 mr-2" /> Sign out
+              <LogOut className="h-4 w-4 mr-2" /> {t("sign_out")}
             </Button>
           </section>
         )}

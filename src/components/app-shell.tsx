@@ -11,10 +11,14 @@ import { CATEGORIES, STORES, suggestCategory } from "@/lib/categories";
 import { fetchItems, fetchMyHousehold, type GroceryItem, type Household } from "@/lib/grocery";
 import { Onboarding } from "@/components/onboarding";
 import { ItemEditDialog, type EditDraft } from "@/components/item-edit-dialog";
+import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
 
 type ViewMode = "all" | "category" | "store";
 
 export function AppShell() {
+  const { t } = useT();
+  const catLabel = useCategoryLabel();
+  const storeLabel = useStoreLabel();
   const [loading, setLoading] = useState(true);
   const [household, setHousehold] = useState<Household | null>(null);
   const [items, setItems] = useState<GroceryItem[]>([]);
@@ -79,7 +83,7 @@ export function AppShell() {
   async function quickAdd() {
     if (!household || !qName.trim()) return;
     if (qStore === "Other" && !qCustomStore.trim()) {
-      toast.error("Please enter a custom store name");
+      toast.error(t("please_enter_custom_store"));
       return;
     }
     const name = qName.trim();
@@ -109,9 +113,9 @@ export function AppShell() {
     }).eq("id", item.id);
     if (error) return toast.error(error.message);
     if (next) {
-      toast("Checked off", {
+      toast(t("checked_off"), {
         action: {
-          label: "Undo",
+          label: t("undo"),
           onClick: async () => {
             await supabase.from("grocery_items").update({ checked: false, checked_by: null, checked_at: null }).eq("id", item.id);
           },
@@ -162,11 +166,11 @@ export function AppShell() {
     if (!household) return;
     const { error } = await supabase.from("grocery_items").delete().eq("household_id", household.id).eq("checked", true);
     if (error) toast.error(error.message);
-    else toast.success("Completed items cleared");
+    else toast.success(t("cleared"));
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">{t("loading")}</div>;
   }
 
   if (!household) {
@@ -178,7 +182,7 @@ export function AppShell() {
   if (view !== "all") {
     const key = view === "category" ? "category" : "store";
     for (const it of active) {
-      const k = (it[key] as string) || (view === "store" ? "Any store" : "Other");
+      const k = (it[key] as string) || (view === "store" ? "__any_store__" : "Other");
       (groups[k] ||= []).push(it);
     }
   }
@@ -195,7 +199,7 @@ export function AppShell() {
             </div>
             <div>
               <h1 className="font-semibold leading-tight">{household.name}</h1>
-              <p className="text-xs text-muted-foreground">{active.length} to buy · {done.length} done</p>
+              <p className="text-xs text-muted-foreground">{active.length} {t("to_buy")} · {done.length} {t("done")}</p>
             </div>
           </div>
           <Link to="/settings">
@@ -211,7 +215,7 @@ export function AppShell() {
         <div className="bg-card rounded-2xl border shadow-sm p-3 space-y-2">
           <div className="flex gap-2">
             <Input
-              placeholder="Add an item…"
+              placeholder={t("add_item_placeholder")}
               value={qName}
               onChange={(e) => setQName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") quickAdd(); }}
@@ -223,22 +227,22 @@ export function AppShell() {
           </div>
           <div className="flex gap-2">
             <Input
-              placeholder="Qty"
+              placeholder={t("qty")}
               value={qQty}
               onChange={(e) => setQQty(e.target.value)}
               className="h-10 rounded-xl flex-1"
             />
             <Select value={qStore} onValueChange={setQStore}>
-              <SelectTrigger className="h-10 rounded-xl flex-1"><SelectValue placeholder="Store" /></SelectTrigger>
+              <SelectTrigger className="h-10 rounded-xl flex-1"><SelectValue placeholder={t("store")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none">Any store</SelectItem>
-                {STORES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                <SelectItem value="__none">{t("any_store")}</SelectItem>
+                {STORES.map((s) => <SelectItem key={s} value={s}>{storeLabel(s)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           {qStore === "Other" && (
             <Input
-              placeholder="Custom store name"
+              placeholder={t("custom_store")}
               value={qCustomStore}
               onChange={(e) => setQCustomStore(e.target.value)}
               className="h-10 rounded-xl"
@@ -246,14 +250,14 @@ export function AppShell() {
           )}
           {qName.trim() && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground px-1 shrink-0">Category</span>
+              <span className="text-xs text-muted-foreground px-1 shrink-0">{t("category")}</span>
               <Select
                 value={qCategory}
                 onValueChange={(v) => { setQCategory(v); setQCategoryTouched(true); }}
               >
                 <SelectTrigger className="h-9 rounded-xl flex-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{catLabel(c)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -263,7 +267,7 @@ export function AppShell() {
         {/* Search */}
         <div className="relative">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items" className="pl-9 h-10 rounded-xl" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("search_items")} className="pl-9 h-10 rounded-xl" />
           {search && (
             <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1">
               <X className="h-4 w-4 text-muted-foreground" />
@@ -274,9 +278,9 @@ export function AppShell() {
         {/* View tabs */}
         <div className="flex gap-1 p-1 bg-muted rounded-xl">
           {([
-            { v: "all", l: "All", i: ListChecks },
-            { v: "category", l: "By category", i: Tag },
-            { v: "store", l: "By store", i: Store },
+            { v: "all", l: t("all_items"), i: ListChecks },
+            { v: "category", l: t("by_category"), i: Tag },
+            { v: "store", l: t("by_store"), i: Store },
           ] as const).map(({ v, l, i: Icon }) => (
             <button
               key={v}
@@ -291,8 +295,8 @@ export function AppShell() {
         {/* Items */}
         {active.length === 0 && done.length === 0 ? (
           <EmptyState
-            title="Your list is empty"
-            desc="Add your first item using the quick add bar above."
+            title={t("list_empty_title")}
+            desc={t("list_empty_desc")}
           />
         ) : view === "all" ? (
           <ItemList items={active} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} />
@@ -301,7 +305,11 @@ export function AppShell() {
             {Object.keys(groups).sort().map((g) => (
               <div key={g}>
                 <div className="flex items-center justify-between px-1 mb-1.5">
-                  <h2 className="text-sm font-semibold">{g}</h2>
+                  <h2 className="text-sm font-semibold">
+                    {view === "category"
+                      ? catLabel(g)
+                      : g === "__any_store__" ? t("any_store") : storeLabel(g)}
+                  </h2>
                   <span className="text-xs text-muted-foreground">{groups[g].length}</span>
                 </div>
                 <ItemList items={groups[g]} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} />
@@ -314,8 +322,8 @@ export function AppShell() {
         {done.length > 0 && (
           <div className="pt-2">
             <div className="flex items-center justify-between px-1 mb-1.5">
-              <h2 className="text-sm font-semibold text-muted-foreground">Completed · {done.length}</h2>
-              <Button variant="ghost" size="sm" onClick={clearCompleted} className="text-xs h-8 rounded-lg">Clear completed</Button>
+              <h2 className="text-sm font-semibold text-muted-foreground">{t("completed")} · {done.length}</h2>
+              <Button variant="ghost" size="sm" onClick={clearCompleted} className="text-xs h-8 rounded-lg">{t("clear_completed")}</Button>
             </div>
             <ItemList items={done} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} faded />
           </div>
@@ -326,7 +334,7 @@ export function AppShell() {
       <button
         onClick={() => { setEditing(null); setDialogOpen(true); }}
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition"
-        aria-label="New item"
+        aria-label={t("new_item")}
       >
         <Plus className="h-6 w-6" />
       </button>
@@ -362,8 +370,11 @@ function ItemList({
   onEdit: (i: GroceryItem) => void;
   faded?: boolean;
 }) {
+  const { t } = useT();
+  const catLabel = useCategoryLabel();
+  const storeLabel = useStoreLabel();
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground text-center py-4">No items</p>;
+    return <p className="text-sm text-muted-foreground text-center py-4">{t("no_items")}</p>;
   }
   return (
     <ul className="bg-card rounded-2xl border shadow-sm divide-y overflow-hidden">
@@ -381,8 +392,8 @@ function ItemList({
             <div className="text-xs text-muted-foreground truncate flex gap-1.5">
               {it.quantity && <span>{it.quantity}</span>}
               {it.quantity && (it.category || it.store) && <span>·</span>}
-              {it.category && <span>{it.category}</span>}
-              {it.store && <span>· {it.store}</span>}
+              {it.category && <span>{catLabel(it.category)}</span>}
+              {it.store && <span>· {storeLabel(it.store)}</span>}
             </div>
           </button>
         </li>
