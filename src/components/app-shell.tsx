@@ -35,6 +35,7 @@ export function AppShell() {
   const [qCustomStore, setQCustomStore] = useState("");
   const [qCategory, setQCategory] = useState<string>("Other");
   const [qCategoryTouched, setQCategoryTouched] = useState(false);
+  const [quickAddPending, setQuickAddPending] = useState(false);
 
   useEffect(() => {
     if (!qCategoryTouched) setQCategory(suggestCategory(qName));
@@ -124,27 +125,35 @@ export function AppShell() {
   const done = filtered.filter((i) => i.checked);
 
   async function quickAdd() {
-    if (!household || !qName.trim()) return;
+    if (!household || !qName.trim() || quickAddPending) return;
     if (qStore === "Other" && !qCustomStore.trim()) {
       toast.error(t("please_enter_custom_store"));
       return;
     }
-    const name = qName.trim();
-    const category = qCategory;
-    const store =
-      qStore === "__none" ? null : qStore === "Other" ? qCustomStore.trim() : qStore;
-    const { data, error } = await supabase.from("grocery_items").insert({
-      household_id: household.id,
-      name,
-      quantity: qQty.trim() || null,
-      category,
-      store,
-      added_by: (await supabase.auth.getUser()).data.user!.id,
-    }).select("*").single();
-    if (error) return toast.error(error.message);
-    applyServerItem(data as GroceryItem);
-    setQName(""); setQQty(""); setQCustomStore("");
-    setQCategoryTouched(false);
+    setQuickAddPending(true);
+    try {
+      const name = qName.trim();
+      const category = qCategory;
+      const store =
+        qStore === "__none" ? null : qStore === "Other" ? qCustomStore.trim() : qStore;
+      const { data, error } = await supabase.from("grocery_items").insert({
+        household_id: household.id,
+        name,
+        quantity: qQty.trim() || null,
+        category,
+        store,
+        added_by: (await supabase.auth.getUser()).data.user!.id,
+      }).select("*").single();
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      applyServerItem(data as GroceryItem);
+      setQName(""); setQQty(""); setQCustomStore("");
+      setQCategoryTouched(false);
+    } finally {
+      setQuickAddPending(false);
+    }
   }
 
   async function toggleCheck(item: GroceryItem) {
@@ -172,7 +181,7 @@ export function AppShell() {
   }
 
   async function saveDraft(draft: EditDraft) {
-    if (!household) return;
+    if (!household) return false;
     const store = draft.store === "Other" ? (draft.custom_store.trim() || "Other") : (draft.store || null);
     if (draft.id) {
       const { data, error } = await supabase.from("grocery_items").update({
@@ -182,8 +191,11 @@ export function AppShell() {
         store,
         notes: draft.notes.trim() || null,
       }).eq("id", draft.id).select("*").single();
-      if (error) toast.error(error.message);
-      else applyServerItem(data as GroceryItem);
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
+      applyServerItem(data as GroceryItem);
     } else {
       const uid = (await supabase.auth.getUser()).data.user!.id;
       const { data, error } = await supabase.from("grocery_items").insert({
@@ -195,20 +207,25 @@ export function AppShell() {
         notes: draft.notes.trim() || null,
         added_by: uid,
       }).select("*").single();
-      if (error) toast.error(error.message);
-      else applyServerItem(data as GroceryItem);
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
+      applyServerItem(data as GroceryItem);
     }
+    return true;
   }
 
   async function deleteItem(id: string) {
-    const prev = items;
+    const deletedItem = items.find((item) => item.id === id);
     removeLocalItems((item) => item.id === id);
     const { error } = await supabase.from("grocery_items").delete().eq("id", id);
     if (error) {
-      itemsRequestIdRef.current += 1;
-      setItems(prev);
+      if (deletedItem) applyServerItem(deletedItem);
       toast.error(error.message);
+      return false;
     }
+    return true;
   }
 
   async function clearCompleted() {
@@ -273,7 +290,12 @@ export function AppShell() {
               onKeyDown={(e) => { if (e.key === "Enter") quickAdd(); }}
               className="h-11 rounded-xl"
             />
-            <Button onClick={quickAdd} disabled={!qName.trim()} className="h-11 w-11 rounded-xl p-0">
+            <Button
+              onClick={quickAdd}
+              disabled={!qName.trim() || quickAddPending}
+              aria-busy={quickAddPending}
+              className="h-11 w-11 rounded-xl p-0"
+            >
               <Plus className="h-5 w-5" />
             </Button>
           </div>
