@@ -11,10 +11,14 @@ import { CATEGORIES, STORES, suggestCategory } from "@/lib/categories";
 import { fetchItems, fetchMyHousehold, type GroceryItem, type Household } from "@/lib/grocery";
 import { Onboarding } from "@/components/onboarding";
 import { ItemEditDialog, type EditDraft } from "@/components/item-edit-dialog";
+import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
 
 type ViewMode = "all" | "category" | "store";
 
 export function AppShell() {
+  const { t } = useT();
+  const catLabel = useCategoryLabel();
+  const storeLabel = useStoreLabel();
   const [loading, setLoading] = useState(true);
   const [household, setHousehold] = useState<Household | null>(null);
   const [items, setItems] = useState<GroceryItem[]>([]);
