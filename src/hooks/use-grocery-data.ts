@@ -8,6 +8,7 @@ import {
   fetchMyHousehold,
   reconcileServerItem,
   removeMatchingItems,
+  restoreRemovedItems,
   updateGroceryItem,
   updateGroceryItemChecked,
   type GroceryItem,
@@ -58,6 +59,10 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
     setItems((current) => removeMatchingItems(current, shouldRemove));
   }, []);
 
+  const restoreLocalItems = useCallback((removedItems: GroceryItem[]) => {
+    itemsRequestIdRef.current += 1;
+    setItems((current) => restoreRemovedItems(current, removedItems));
+  }, []);
   const refresh = useCallback(async () => {
     try {
       const nextHousehold = await fetchMyHousehold();
@@ -175,15 +180,19 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
 
   const clearCompletedItems = useCallback(async () => {
     if (!household) return false;
+    const completedItems = items.filter((item) => item.checked);
+    if (completedItems.length === 0) return true;
+
+    removeLocalItems((item) => item.checked);
     try {
       await deleteCompletedGroceryItems(household.id);
-      removeLocalItems((item) => item.checked);
       return true;
     } catch (error) {
+      restoreLocalItems(completedItems);
       reportError(error);
       return false;
     }
-  }, [household, removeLocalItems, reportError]);
+  }, [household, items, removeLocalItems, reportError, restoreLocalItems]);
 
   return {
     loading,
