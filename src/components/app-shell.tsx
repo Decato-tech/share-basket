@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Toaster } from "@/components/ui/sonner";
 import {
   AlertDialog,
@@ -17,13 +22,23 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Search, Settings, ShoppingBasket, Store, Tag, ListChecks, X, Undo2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Settings,
+  ShoppingBasket,
+  Store,
+  Tag,
+  ListChecks,
+  X,
+  Undo2,
+} from "lucide-react";
 import { CATEGORIES, STORES, suggestCategory } from "@/lib/categories";
-import { fetchItems, fetchMyHousehold, type GroceryItem, type Household } from "@/lib/grocery";
+import { filterGroceryItems, isGroceryValidationError, type GroceryItem } from "@/lib/grocery";
 import { Onboarding } from "@/components/onboarding";
 import { ItemEditDialog, type EditDraft } from "@/components/item-edit-dialog";
 import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
-import { normalizeStoreDraft } from "@/lib/stores";
+import { useGroceryData } from "@/hooks/use-grocery-data";
 
 type ViewMode = "all" | "category" | "store";
 
@@ -31,10 +46,6 @@ export function AppShell() {
   const { t } = useT();
   const catLabel = useCategoryLabel();
   const storeLabel = useStoreLabel();
-  const [loading, setLoading] = useState(true);
-  const [household, setHousehold] = useState<Household | null>(null);
-  const [items, setItems] = useState<GroceryItem[]>([]);
-  const itemsRequestIdRef = useRef(0);
   const [view, setView] = useState<ViewMode>("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<GroceryItem | null>(null);
@@ -49,118 +60,59 @@ export function AppShell() {
   const [qCategoryTouched, setQCategoryTouched] = useState(false);
   const [quickAddPending, setQuickAddPending] = useState(false);
 
+  const handleGroceryError = useCallback(
+    (error: unknown) => {
+      if (isGroceryValidationError(error) && error.code === "custom_store_required") {
+        toast.error(t("please_enter_custom_store"));
+        return;
+      }
+      toast.error((error as Error).message);
+    },
+    [t],
+  );
+
+  const handleRealtimeUnavailable = useCallback(() => {
+    toast.error(t("live_sync_unavailable"), { id: "grocery-realtime-error" });
+  }, [t]);
+
+  const {
+    loading,
+    household,
+    items,
+    refresh,
+    createItem,
+    saveItem,
+    setItemChecked,
+    removeItem,
+    clearCompletedItems,
+  } = useGroceryData({
+    onError: handleGroceryError,
+    onRealtimeUnavailable: handleRealtimeUnavailable,
+  });
+
   useEffect(() => {
     if (!qCategoryTouched) setQCategory(suggestCategory(qName));
   }, [qName, qCategoryTouched]);
 
-  const syncItems = useCallback(async (householdId: string) => {
-    const requestId = ++itemsRequestIdRef.current;
-    try {
-      const nextItems = await fetchItems(householdId);
-      if (requestId === itemsRequestIdRef.current) setItems(nextItems);
-      return true;
-    } catch (e) {
-      if (requestId === itemsRequestIdRef.current) {
-        toast.error((e as Error).message, { id: "grocery-sync-error" });
-      }
-      return false;
-    }
-  }, []);
-
-  const applyServerItem = useCallback((item: GroceryItem) => {
-    itemsRequestIdRef.current += 1;
-    setItems((current) =>
-      [item, ...current.filter((candidate) => candidate.id !== item.id)]
-        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    );
-  }, []);
-
-  const removeLocalItems = useCallback((shouldRemove: (item: GroceryItem) => boolean) => {
-    itemsRequestIdRef.current += 1;
-    setItems((current) => current.filter((item) => !shouldRemove(item)));
-  }, []);
-
-  const refresh = useCallback(async () => {
-    try {
-      const h = await fetchMyHousehold();
-      setHousehold(h);
-      if (h) await syncItems(h.id);
-      else {
-        itemsRequestIdRef.current += 1;
-        setItems([]);
-      }
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [syncItems]);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  // Realtime
-  useEffect(() => {
-    if (!household) return;
-    let connectionErrorShown = false;
-    const channel = supabase
-      .channel(`items-${household.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "grocery_items", filter: `household_id=eq.${household.id}` },
-        () => { void syncItems(household.id); },
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          connectionErrorShown = false;
-          void syncItems(household.id);
-          return;
-        }
-        if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !connectionErrorShown) {
-          connectionErrorShown = true;
-          toast.error(t("live_sync_unavailable"), { id: "grocery-realtime-error" });
-        }
-      });
-    return () => { supabase.removeChannel(channel); };
-  }, [household, syncItems, t]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) =>
-      i.name.toLowerCase().includes(q) ||
-      (i.notes ?? "").toLowerCase().includes(q) ||
-      (i.store ?? "").toLowerCase().includes(q),
-    );
-  }, [items, search]);
-
+  const filtered = useMemo(() => filterGroceryItems(items, search), [items, search]);
   const active = filtered.filter((i) => !i.checked);
   const done = filtered.filter((i) => i.checked);
 
   async function quickAdd() {
     if (!household || !qName.trim() || quickAddPending) return;
-    const normalizedStore = normalizeStoreDraft({ store: qStore, custom_store: qCustomStore });
-    if (normalizedStore.error) {
-      toast.error(t("please_enter_custom_store"));
-      return;
-    }
     setQuickAddPending(true);
     try {
-      const name = qName.trim();
-      const category = qCategory;
-      const { data, error } = await supabase.from("grocery_items").insert({
-        household_id: household.id,
-        name,
-        quantity: qQty.trim() || null,
-        category,
-        store: normalizedStore.store,
-        added_by: (await supabase.auth.getUser()).data.user!.id,
-      }).select("*").single();
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      applyServerItem(data as GroceryItem);
-      setQName(""); setQQty(""); setQCustomStore("");
+      const item = await createItem({
+        name: qName,
+        quantity: qQty,
+        category: qCategory,
+        store: qStore,
+        custom_store: qCustomStore,
+      });
+      if (!item) return;
+      setQName("");
+      setQQty("");
+      setQCustomStore("");
       setQCategoryTouched(false);
     } finally {
       setQuickAddPending(false);
@@ -168,94 +120,38 @@ export function AppShell() {
   }
 
   async function toggleCheck(item: GroceryItem) {
-    const next = !item.checked;
-    const { data, error } = await supabase.from("grocery_items").update({
-      checked: next,
-    }).eq("id", item.id).select("*").single();
-    if (error) return toast.error(error.message);
-    applyServerItem(data as GroceryItem);
-    if (next) {
-      toast(t("checked_off"), {
-        action: {
-          label: t("undo"),
-          onClick: async () => {
-            const { data: undone, error: undoError } = await supabase
-              .from("grocery_items").update({ checked: false }).eq("id", item.id)
-              .select("*").single();
-            if (undoError) return toast.error(undoError.message);
-            applyServerItem(undone as GroceryItem);
-          },
+    const updated = await setItemChecked(item, !item.checked);
+    if (!updated?.checked) return;
+
+    toast(t("checked_off"), {
+      action: {
+        label: t("undo"),
+        onClick: async () => {
+          await setItemChecked(updated, false);
         },
-        icon: <Undo2 className="h-4 w-4" />,
-      });
-    }
+      },
+      icon: <Undo2 className="h-4 w-4" />,
+    });
   }
 
   async function saveDraft(draft: EditDraft) {
-    if (!household) return false;
-    const normalizedStore = normalizeStoreDraft(draft);
-    if (normalizedStore.error) {
-      toast.error(t("please_enter_custom_store"));
-      return false;
-    }
-
-    if (draft.id) {
-      const { data, error } = await supabase.from("grocery_items").update({
-        name: draft.name.trim(),
-        quantity: draft.quantity.trim() || null,
-        category: draft.category,
-        store: normalizedStore.store,
-        notes: draft.notes.trim() || null,
-      }).eq("id", draft.id).select("*").single();
-      if (error) {
-        toast.error(error.message);
-        return false;
-      }
-      applyServerItem(data as GroceryItem);
-    } else {
-      const uid = (await supabase.auth.getUser()).data.user!.id;
-      const { data, error } = await supabase.from("grocery_items").insert({
-        household_id: household.id,
-        name: draft.name.trim(),
-        quantity: draft.quantity.trim() || null,
-        category: draft.category,
-        store: normalizedStore.store,
-        notes: draft.notes.trim() || null,
-        added_by: uid,
-      }).select("*").single();
-      if (error) {
-        toast.error(error.message);
-        return false;
-      }
-      applyServerItem(data as GroceryItem);
-    }
-    return true;
+    return saveItem(draft);
   }
 
   async function deleteItem(id: string) {
-    const deletedItem = items.find((item) => item.id === id);
-    removeLocalItems((item) => item.id === id);
-    const { error } = await supabase.from("grocery_items").delete().eq("id", id);
-    if (error) {
-      if (deletedItem) applyServerItem(deletedItem);
-      toast.error(error.message);
-      return false;
-    }
-    return true;
+    return removeItem(id);
   }
 
   async function clearCompleted() {
-    if (!household) return;
-    const { error } = await supabase.from("grocery_items").delete().eq("household_id", household.id).eq("checked", true);
-    if (error) toast.error(error.message);
-    else {
-      removeLocalItems((item) => item.checked);
-      toast.success(t("cleared"));
-    }
+    if (await clearCompletedItems()) toast.success(t("cleared"));
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">{t("loading")}</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        {t("loading")}
+      </div>
+    );
   }
 
   if (!household) {
@@ -284,7 +180,9 @@ export function AppShell() {
             </div>
             <div className="min-w-0">
               <h1 className="truncate font-semibold leading-tight">{household.name}</h1>
-              <p className="truncate text-xs text-muted-foreground">{active.length} {t("to_buy")} · {done.length} {t("done")}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {active.length} {t("to_buy")} · {done.length} {t("done")}
+              </p>
             </div>
           </div>
           <Link to="/settings">
@@ -303,7 +201,9 @@ export function AppShell() {
               placeholder={t("add_item_placeholder")}
               value={qName}
               onChange={(e) => setQName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") quickAdd(); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void quickAdd();
+              }}
               className="h-11 rounded-xl"
             />
             <Button
@@ -323,10 +223,16 @@ export function AppShell() {
               className="h-10 rounded-xl flex-1"
             />
             <Select value={qStore} onValueChange={setQStore}>
-              <SelectTrigger className="h-10 rounded-xl flex-1"><SelectValue placeholder={t("store")} /></SelectTrigger>
+              <SelectTrigger className="h-10 rounded-xl flex-1">
+                <SelectValue placeholder={t("store")} />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none">{t("any_store")}</SelectItem>
-                {STORES.map((s) => <SelectItem key={s} value={s}>{storeLabel(s)}</SelectItem>)}
+                {STORES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {storeLabel(s)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -343,11 +249,20 @@ export function AppShell() {
               <span className="text-xs text-muted-foreground px-1 shrink-0">{t("category")}</span>
               <Select
                 value={qCategory}
-                onValueChange={(v) => { setQCategory(v); setQCategoryTouched(true); }}
+                onValueChange={(v) => {
+                  setQCategory(v);
+                  setQCategoryTouched(true);
+                }}
               >
-                <SelectTrigger className="h-9 rounded-xl flex-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 rounded-xl flex-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{catLabel(c)}</SelectItem>)}
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {catLabel(c)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -357,9 +272,17 @@ export function AppShell() {
         {/* Search */}
         <div className="relative">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("search_items")} className="h-11 pl-9 pr-12 rounded-xl" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("search_items")}
+            className="h-11 pl-9 pr-12 rounded-xl"
+          />
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full">
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full"
+            >
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
           )}
@@ -367,11 +290,13 @@ export function AppShell() {
 
         {/* View tabs */}
         <div className="flex gap-1 p-1 bg-muted rounded-xl">
-          {([
-            { v: "all", l: t("all_items"), i: ListChecks },
-            { v: "category", l: t("by_category"), i: Tag },
-            { v: "store", l: t("by_store"), i: Store },
-          ] as const).map(({ v, l, i: Icon }) => (
+          {(
+            [
+              { v: "all", l: t("all_items"), i: ListChecks },
+              { v: "category", l: t("by_category"), i: Tag },
+              { v: "store", l: t("by_store"), i: Store },
+            ] as const
+          ).map(({ v, l, i: Icon }) => (
             <button
               key={v}
               onClick={() => setView(v)}
@@ -384,27 +309,42 @@ export function AppShell() {
 
         {/* Items */}
         {active.length === 0 && done.length === 0 ? (
-          <EmptyState
-            title={t("list_empty_title")}
-            desc={t("list_empty_desc")}
-          />
+          <EmptyState title={t("list_empty_title")} desc={t("list_empty_desc")} />
         ) : view === "all" ? (
-          <ItemList items={active} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} />
+          <ItemList
+            items={active}
+            onToggle={toggleCheck}
+            onEdit={(i) => {
+              setEditing(i);
+              setDialogOpen(true);
+            }}
+          />
         ) : (
           <div className="space-y-4">
-            {Object.keys(groups).sort().map((g) => (
-              <div key={g}>
-                <div className="flex items-center justify-between px-1 mb-1.5">
-                  <h2 className="text-sm font-semibold">
-                    {view === "category"
-                      ? catLabel(g)
-                      : g === "__any_store__" ? t("any_store") : storeLabel(g)}
-                  </h2>
-                  <span className="text-xs text-muted-foreground">{groups[g].length}</span>
+            {Object.keys(groups)
+              .sort()
+              .map((g) => (
+                <div key={g}>
+                  <div className="flex items-center justify-between px-1 mb-1.5">
+                    <h2 className="text-sm font-semibold">
+                      {view === "category"
+                        ? catLabel(g)
+                        : g === "__any_store__"
+                          ? t("any_store")
+                          : storeLabel(g)}
+                    </h2>
+                    <span className="text-xs text-muted-foreground">{groups[g].length}</span>
+                  </div>
+                  <ItemList
+                    items={groups[g]}
+                    onToggle={toggleCheck}
+                    onEdit={(i) => {
+                      setEditing(i);
+                      setDialogOpen(true);
+                    }}
+                  />
                 </div>
-                <ItemList items={groups[g]} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} />
-              </div>
-            ))}
+              ))}
           </div>
         )}
 
@@ -412,31 +352,55 @@ export function AppShell() {
         {done.length > 0 && (
           <div className="pt-2">
             <div className="flex items-center justify-between px-1 mb-1.5">
-              <h2 className="text-sm font-semibold text-muted-foreground">{t("completed")} · {done.length}</h2>
+              <h2 className="text-sm font-semibold text-muted-foreground">
+                {t("completed")} · {done.length}
+              </h2>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="min-h-11 rounded-lg px-3 text-xs">{t("clear_completed")}</Button>
+                  <Button variant="ghost" size="sm" className="min-h-11 rounded-lg px-3 text-xs">
+                    {t("clear_completed")}
+                  </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>{t("confirm_clear_completed_title")}</AlertDialogTitle>
-                    <AlertDialogDescription>{t("confirm_clear_completed_desc")}</AlertDialogDescription>
+                    <AlertDialogDescription>
+                      {t("confirm_clear_completed_desc")}
+                    </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => { void clearCompleted(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{t("clear_completed")}</AlertDialogAction>
+                    <AlertDialogAction
+                      onClick={() => {
+                        void clearCompleted();
+                      }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {t("clear_completed")}
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-            <ItemList items={done} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} faded />
+            <ItemList
+              items={done}
+              onToggle={toggleCheck}
+              onEdit={(i) => {
+                setEditing(i);
+                setDialogOpen(true);
+              }}
+              faded
+            />
           </div>
         )}
       </main>
 
       {/* Floating add */}
       <button
-        onClick={() => { setEditing(null); setDialogOpen(true); }}
+        onClick={() => {
+          setEditing(null);
+          setDialogOpen(true);
+        }}
         className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-[calc(1.5rem+env(safe-area-inset-right))] h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition"
         aria-label={t("new_item")}
       >
@@ -467,7 +431,10 @@ function EmptyState({ title, desc }: { title: string; desc: string }) {
 }
 
 function ItemList({
-  items, onToggle, onEdit, faded = false,
+  items,
+  onToggle,
+  onEdit,
+  faded = false,
 }: {
   items: GroceryItem[];
   onToggle: (i: GroceryItem) => void;
@@ -483,16 +450,25 @@ function ItemList({
   return (
     <ul className="bg-card rounded-2xl border shadow-sm divide-y overflow-hidden">
       {items.map((it) => (
-        <li key={it.id} className={`flex items-center gap-3 px-3 py-2 ${faded ? "opacity-60" : ""}`}>
+        <li
+          key={it.id}
+          className={`flex items-center gap-3 px-3 py-2 ${faded ? "opacity-60" : ""}`}
+        >
           <button
             onClick={() => onToggle(it)}
             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition ${it.checked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"}`}
             aria-label={it.checked ? "Uncheck" : "Check"}
           >
-            {it.checked && <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4L8.5 12 15.3 5.3a1 1 0 011.4 0z" /></svg>}
+            {it.checked && (
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4L8.5 12 15.3 5.3a1 1 0 011.4 0z" />
+              </svg>
+            )}
           </button>
           <button onClick={() => onEdit(it)} className="min-h-11 flex-1 min-w-0 text-left">
-            <div className={`font-medium truncate ${it.checked ? "line-through" : ""}`}>{it.name}</div>
+            <div className={`font-medium truncate ${it.checked ? "line-through" : ""}`}>
+              {it.name}
+            </div>
             <div className="text-xs text-muted-foreground truncate flex gap-1.5">
               {it.quantity && <span>{it.quantity}</span>}
               {it.quantity && (it.category || it.store) && <span>·</span>}
