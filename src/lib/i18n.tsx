@@ -88,6 +88,12 @@ const dict = {
   save: { en: "Save", nl: "Opslaan" },
   cancel: { en: "Cancel", nl: "Annuleren" },
   delete: { en: "Delete", nl: "Verwijderen" },
+  confirm_delete_item_title: { en: "Delete this item?", nl: "Dit product verwijderen?" },
+  confirm_delete_item_desc: { en: "This removes the item from the shared list for everyone in your household.", nl: "Dit verwijdert het product uit de gedeelde lijst voor iedereen in je huishouden." },
+  confirm_clear_completed_title: { en: "Clear completed items?", nl: "Afgeronde producten wissen?" },
+  confirm_clear_completed_desc: { en: "This permanently removes all completed items from the shared list.", nl: "Dit verwijdert alle afgeronde producten definitief uit de gedeelde lijst." },
+  confirm_leave_household_title: { en: "Leave this household?", nl: "Dit huishouden verlaten?" },
+  confirm_leave_household_desc: { en: "You will lose access to this shared grocery list unless someone invites you again.", nl: "Je verliest toegang tot deze gedeelde boodschappenlijst totdat iemand je opnieuw uitnodigt." },
   saved: { en: "Saved", nl: "Opgeslagen" },
 
   // Settings

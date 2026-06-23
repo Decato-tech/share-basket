@@ -5,6 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Plus, Search, Settings, ShoppingBasket, Store, Tag, ListChecks, X, Undo2 } from "lucide-react";
 import { CATEGORIES, STORES, suggestCategory } from "@/lib/categories";
@@ -271,9 +282,9 @@ export function AppShell() {
             <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
               <ShoppingBasket className="h-5 w-5" />
             </div>
-            <div>
-              <h1 className="font-semibold leading-tight">{household.name}</h1>
-              <p className="text-xs text-muted-foreground">{active.length} {t("to_buy")} · {done.length} {t("done")}</p>
+            <div className="min-w-0">
+              <h1 className="truncate font-semibold leading-tight">{household.name}</h1>
+              <p className="truncate text-xs text-muted-foreground">{active.length} {t("to_buy")} · {done.length} {t("done")}</p>
             </div>
           </div>
           <Link to="/settings">
@@ -346,9 +357,9 @@ export function AppShell() {
         {/* Search */}
         <div className="relative">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("search_items")} className="pl-9 h-10 rounded-xl" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("search_items")} className="h-11 pl-9 pr-12 rounded-xl" />
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1">
+            <button onClick={() => setSearch("")} className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full">
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
           )}
@@ -402,7 +413,21 @@ export function AppShell() {
           <div className="pt-2">
             <div className="flex items-center justify-between px-1 mb-1.5">
               <h2 className="text-sm font-semibold text-muted-foreground">{t("completed")} · {done.length}</h2>
-              <Button variant="ghost" size="sm" onClick={clearCompleted} className="text-xs h-8 rounded-lg">{t("clear_completed")}</Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="min-h-11 rounded-lg px-3 text-xs">{t("clear_completed")}</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t("confirm_clear_completed_title")}</AlertDialogTitle>
+                    <AlertDialogDescription>{t("confirm_clear_completed_desc")}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => { void clearCompleted(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{t("clear_completed")}</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
             <ItemList items={done} onToggle={toggleCheck} onEdit={(i) => { setEditing(i); setDialogOpen(true); }} faded />
           </div>
@@ -412,7 +437,7 @@ export function AppShell() {
       {/* Floating add */}
       <button
         onClick={() => { setEditing(null); setDialogOpen(true); }}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition"
+        className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-[calc(1.5rem+env(safe-area-inset-right))] h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition"
         aria-label={t("new_item")}
       >
         <Plus className="h-6 w-6" />
@@ -458,15 +483,15 @@ function ItemList({
   return (
     <ul className="bg-card rounded-2xl border shadow-sm divide-y overflow-hidden">
       {items.map((it) => (
-        <li key={it.id} className={`flex items-center gap-3 p-3 ${faded ? "opacity-60" : ""}`}>
+        <li key={it.id} className={`flex items-center gap-3 px-3 py-2 ${faded ? "opacity-60" : ""}`}>
           <button
             onClick={() => onToggle(it)}
-            className={`h-7 w-7 shrink-0 rounded-full border-2 flex items-center justify-center transition ${it.checked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition ${it.checked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"}`}
             aria-label={it.checked ? "Uncheck" : "Check"}
           >
             {it.checked && <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4L8.5 12 15.3 5.3a1 1 0 011.4 0z" /></svg>}
           </button>
-          <button onClick={() => onEdit(it)} className="flex-1 text-left min-w-0">
+          <button onClick={() => onEdit(it)} className="min-h-11 flex-1 min-w-0 text-left">
             <div className={`font-medium truncate ${it.checked ? "line-through" : ""}`}>{it.name}</div>
             <div className="text-xs text-muted-foreground truncate flex gap-1.5">
               {it.quantity && <span>{it.quantity}</span>}

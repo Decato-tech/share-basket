@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -134,17 +145,36 @@ export function ItemEditDialog({
             <Textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder={t("optional")} rows={2} />
           </div>
         </div>
-        <DialogFooter className="flex-row gap-2 sm:gap-2">
-          {item && onDelete && (
-            <Button variant="destructive" onClick={remove} disabled={pendingAction !== null} className="rounded-xl">
-              {pendingAction === "delete" ? t("please_wait") : t("delete")}
-            </Button>
-          )}
-          <div className="flex-1" />
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pendingAction !== null} className="rounded-xl">{t("cancel")}</Button>
-          <Button onClick={save} disabled={!draft.name.trim() || pendingAction !== null} className="rounded-xl">
-            {pendingAction === "save" ? t("please_wait") : t("save")}
-          </Button>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            {item && onDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={pendingAction !== null} className="min-h-11 rounded-xl sm:mr-auto">
+                    {pendingAction === "delete" ? t("please_wait") : t("delete")}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t("confirm_delete_item_title")}</AlertDialogTitle>
+                    <AlertDialogDescription>{t("confirm_delete_item_desc")}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => { void remove(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      {t("delete")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <div className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pendingAction !== null} className="min-h-11 rounded-xl">{t("cancel")}</Button>
+              <Button onClick={save} disabled={!draft.name.trim() || pendingAction !== null} className="min-h-11 rounded-xl">
+                {pendingAction === "save" ? t("please_wait") : t("save")}
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
