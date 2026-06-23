@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CATEGORIES, STORES, suggestCategory } from "@/lib/categories";
 import type { GroceryItem } from "@/lib/grocery";
+import { isCustomStore } from "@/lib/stores";
 import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
 import { toast } from "sonner";
 
@@ -44,7 +45,7 @@ export function ItemEditDialog({
 
   useEffect(() => {
     if (item) {
-      const isCustom = item.store && !STORES.includes(item.store as never);
+      const isCustom = isCustomStore(item.store);
       setDraft({
         id: item.id,
         name: item.name,

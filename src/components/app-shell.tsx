@@ -12,6 +12,7 @@ import { fetchItems, fetchMyHousehold, type GroceryItem, type Household } from "
 import { Onboarding } from "@/components/onboarding";
 import { ItemEditDialog, type EditDraft } from "@/components/item-edit-dialog";
 import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
+import { normalizeStoreDraft } from "@/lib/stores";
 
 type ViewMode = "all" | "category" | "store";
 
@@ -126,7 +127,8 @@ export function AppShell() {
 
   async function quickAdd() {
     if (!household || !qName.trim() || quickAddPending) return;
-    if (qStore === "Other" && !qCustomStore.trim()) {
+    const normalizedStore = normalizeStoreDraft({ store: qStore, custom_store: qCustomStore });
+    if (normalizedStore.error) {
       toast.error(t("please_enter_custom_store"));
       return;
     }
@@ -134,14 +136,12 @@ export function AppShell() {
     try {
       const name = qName.trim();
       const category = qCategory;
-      const store =
-        qStore === "__none" ? null : qStore === "Other" ? qCustomStore.trim() : qStore;
       const { data, error } = await supabase.from("grocery_items").insert({
         household_id: household.id,
         name,
         quantity: qQty.trim() || null,
         category,
-        store,
+        store: normalizedStore.store,
         added_by: (await supabase.auth.getUser()).data.user!.id,
       }).select("*").single();
       if (error) {
@@ -182,13 +182,18 @@ export function AppShell() {
 
   async function saveDraft(draft: EditDraft) {
     if (!household) return false;
-    const store = draft.store === "Other" ? (draft.custom_store.trim() || "Other") : (draft.store || null);
+    const normalizedStore = normalizeStoreDraft(draft);
+    if (normalizedStore.error) {
+      toast.error(t("please_enter_custom_store"));
+      return false;
+    }
+
     if (draft.id) {
       const { data, error } = await supabase.from("grocery_items").update({
         name: draft.name.trim(),
         quantity: draft.quantity.trim() || null,
         category: draft.category,
-        store,
+        store: normalizedStore.store,
         notes: draft.notes.trim() || null,
       }).eq("id", draft.id).select("*").single();
       if (error) {
@@ -203,7 +208,7 @@ export function AppShell() {
         name: draft.name.trim(),
         quantity: draft.quantity.trim() || null,
         category: draft.category,
-        store,
+        store: normalizedStore.store,
         notes: draft.notes.trim() || null,
         added_by: uid,
       }).select("*").single();
