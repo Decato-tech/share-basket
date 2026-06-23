@@ -21,6 +21,15 @@ const dict = {
   have_account: { en: "Already have an account?", nl: "Heb je al een account?" },
   no_account: { en: "Don't have an account?", nl: "Nog geen account?" },
   account_created: { en: "Account created — you're in!", nl: "Account aangemaakt — je bent ingelogd!" },
+  check_email_to_confirm: {
+    en: "Check your email to confirm your account.",
+    nl: "Controleer je e-mail om je account te bevestigen.",
+  },
+  check_email_title: { en: "Confirm your email", nl: "Bevestig je e-mail" },
+  check_email_desc: {
+    en: "We sent a confirmation link to",
+    nl: "We hebben een bevestigingslink gestuurd naar",
+  },
 
   // Onboarding
   welcome: { en: "Welcome", nl: "Welkom" },

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { ShoppingBasket } from "lucide-react";
 import { useT, type Lang } from "@/lib/i18n";
+import { getSignupNextStep } from "@/lib/auth";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -27,6 +28,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -37,9 +39,10 @@ function AuthPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setConfirmationEmail(null);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -48,6 +51,11 @@ function AuthPage() {
           },
         });
         if (error) throw error;
+        if (getSignupNextStep(data) === "confirm_email") {
+          setConfirmationEmail(email.trim());
+          toast.success(t("check_email_to_confirm"));
+          return;
+        }
         toast.success(t("account_created"));
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -101,6 +109,15 @@ function AuthPage() {
               {t("sign_up")}
             </button>
           </div>
+          {confirmationEmail && (
+            <div className="mb-5 rounded-xl border border-primary/20 bg-primary/10 p-3 text-sm">
+              <p className="font-medium">{t("check_email_title")}</p>
+              <p className="mt-1 text-muted-foreground">
+                {t("check_email_desc")} <span className="font-medium text-foreground">{confirmationEmail}</span>
+              </p>
+            </div>
+          )}
+
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
