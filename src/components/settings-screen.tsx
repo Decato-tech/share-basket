@@ -2,6 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
@@ -196,7 +207,21 @@ export function SettingsScreen() {
             </section>
 
             <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-2">
-              <Button variant="outline" onClick={leaveHousehold} className="w-full rounded-xl">{t("leave_household")}</Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="min-h-11 w-full rounded-xl">{t("leave_household")}</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t("confirm_leave_household_title")}</AlertDialogTitle>
+                    <AlertDialogDescription>{t("confirm_leave_household_desc")}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => { void leaveHousehold(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{t("leave_household")}</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button variant="destructive" onClick={signOut} className="w-full rounded-xl">
                 <LogOut className="h-4 w-4 mr-2" /> {t("sign_out")}
               </Button>
