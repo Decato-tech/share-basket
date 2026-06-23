@@ -94,6 +94,13 @@ export function removeMatchingItems(
   return items.filter((item) => !shouldRemove(item));
 }
 
+export function restoreRemovedItems(items: GroceryItem[], removedItems: GroceryItem[]) {
+  const removedIds = new Set(removedItems.map((item) => item.id));
+  return sortItemsNewestFirst([
+    ...removedItems,
+    ...items.filter((item) => !removedIds.has(item.id)),
+  ]);
+}
 export function filterGroceryItems(items: GroceryItem[], search: string) {
   const query = search.trim().toLowerCase();
   if (!query) return items;

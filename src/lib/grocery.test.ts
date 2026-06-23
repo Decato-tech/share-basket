@@ -10,6 +10,7 @@ import {
   prepareGroceryUpdate,
   reconcileServerItem,
   removeMatchingItems,
+  restoreRemovedItems,
   type GroceryItem,
 } from "./grocery.ts";
 
@@ -139,6 +140,23 @@ describe("grocery cache helpers", () => {
     assert.deepEqual(
       removeMatchingItems([active, done], (candidate) => candidate.id === "active"),
       [done],
+    );
+  });
+
+  it("restores removed items without duplicating stale copies", () => {
+    const active = item({ id: "active", checked: false, created_at: "2026-01-01T09:00:00.000Z" });
+    const newerDone = item({ id: "done", checked: true, created_at: "2026-01-01T11:00:00.000Z" });
+    const currentDone = item({ id: "done", name: "stale", checked: true });
+
+    assert.deepEqual(
+      restoreRemovedItems([active, currentDone], [newerDone]).map((candidate) => [
+        candidate.id,
+        candidate.name,
+      ]),
+      [
+        ["done", "Milk"],
+        ["active", "Milk"],
+      ],
     );
   });
 
