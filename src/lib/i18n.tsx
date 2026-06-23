@@ -97,6 +97,12 @@ const dict = {
   language: { en: "Language", nl: "Taal" },
   english: { en: "English", nl: "Engels" },
   dutch: { en: "Dutch", nl: "Nederlands" },
+  settings_load_failed: { en: "Settings could not be loaded", nl: "Instellingen konden niet worden geladen" },
+  retry: { en: "Retry", nl: "Opnieuw proberen" },
+  household_access_removed: {
+    en: "You no longer have access to this household.",
+    nl: "Je hebt geen toegang meer tot dit huishouden.",
+  },
 
   // Categories
   cat_fruit_vegetables: { en: "Fruit & Vegetables", nl: "Groente & Fruit" },
@@ -138,7 +144,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     lang,
     setLang: (l) => {
       setLangState(l);
-      try { window.localStorage.setItem(STORAGE_KEY, l); } catch {}
+      try {
+        window.localStorage.setItem(STORAGE_KEY, l);
+      } catch {
+        // Ignore storage errors, for example in private browsing.
+      }
     },
     t: (k) => dict[k]?.[lang] ?? (dict[k]?.en ?? k),
   }), [lang]);

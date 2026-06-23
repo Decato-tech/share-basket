@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -18,23 +18,77 @@ export function SettingsScreen() {
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadedHouseholdIdRef = useRef<string | null>(null);
+  const householdId = household?.id;
 
-  const load = useCallback(async () => {
-    const h = await fetchMyHousehold();
-    setHousehold(h);
-    setName(h?.name ?? "");
-    if (h) setMembers(await fetchMembers(h.id));
-    setLoading(false);
-  }, []);
+  const load = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
+    try {
+      setLoadError(null);
+      const h = await fetchMyHousehold();
+      setHousehold(h);
+      setName(h?.name ?? "");
 
-  useEffect(() => { load(); }, [load]);
+      if (h) {
+        loadedHouseholdIdRef.current = h.id;
+        setMembers(await fetchMembers(h.id));
+        return;
+      }
+
+      const previousHouseholdId = loadedHouseholdIdRef.current;
+      loadedHouseholdIdRef.current = null;
+      setMembers([]);
+
+      if (previousHouseholdId) {
+        toast.error(t("household_access_removed"));
+        navigate({ to: "/app" });
+      }
+    } catch (error) {
+      const message = (error as Error).message;
+      setLoadError(message);
+      toast.error(message, { id: "settings-load-error" });
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate, t]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!householdId) return;
+    let connectionErrorShown = false;
+    const channel = supabase
+      .channel(`settings-${householdId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "households", filter: `id=eq.${householdId}` },
+        () => { void load(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "household_members", filter: `household_id=eq.${householdId}` },
+        () => { void load(); },
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          connectionErrorShown = false;
+          return;
+        }
+        if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !connectionErrorShown) {
+          connectionErrorShown = true;
+          toast.error(t("live_sync_unavailable"), { id: "settings-realtime-error" });
+        }
+      });
+    return () => { supabase.removeChannel(channel); };
+  }, [householdId, load, t]);
 
   async function saveName() {
     if (!household || !name.trim() || name === household.name) return;
     const { error } = await supabase.from("households").update({ name: name.trim() }).eq("id", household.id);
     if (error) return toast.error(error.message);
     toast.success(t("saved"));
-    load();
+    void load();
   }
 
   async function signOut() {
@@ -48,6 +102,10 @@ export function SettingsScreen() {
     const { error } = await supabase.from("household_members").delete().eq("household_id", household.id).eq("user_id", uid);
     if (error) return toast.error(error.message);
     toast.success(t("left_household"));
+    loadedHouseholdIdRef.current = null;
+    setHousehold(null);
+    setMembers([]);
+    setName("");
     navigate({ to: "/app" });
   }
 
@@ -58,6 +116,21 @@ export function SettingsScreen() {
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">{t("loading")}</div>;
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <Toaster />
+        <div className="bg-card border rounded-2xl shadow-sm p-5 max-w-sm w-full text-center space-y-3">
+          <h1 className="font-semibold">{t("settings_load_failed")}</h1>
+          <p className="text-sm text-muted-foreground break-words">{loadError}</p>
+          <Button onClick={() => { void load(true); }} className="rounded-xl">
+            {t("retry")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-background pb-20">
