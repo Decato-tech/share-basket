@@ -121,11 +121,17 @@ export async function fetchMyHousehold(): Promise<Household | null> {
   if (!membership) return null;
   const { data, error } = await supabase
     .from("households")
-    .select("*")
+    .select("id, name, created_by, created_at")
     .eq("id", membership.household_id)
     .single();
   if (error) throw error;
-  return data as Household;
+  return { ...(data as Omit<Household, "invite_code">), invite_code: "" } as Household;
+}
+
+export async function fetchHouseholdInviteCode(householdId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc("get_household_invite_code", { _household_id: householdId });
+  if (error) throw error;
+  return (data as string | null) ?? null;
 }
 
 export async function fetchMembers(householdId: string): Promise<MemberProfile[]> {

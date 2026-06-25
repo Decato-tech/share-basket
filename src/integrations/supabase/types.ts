@@ -148,6 +148,10 @@ export type Database = {
     Functions: {
       create_household: { Args: { _name: string }; Returns: string }
       generate_invite_code: { Args: never; Returns: string }
+      get_household_invite_code: {
+        Args: { _household_id: string }
+        Returns: string
+      }
       is_household_member: {
         Args: { _household_id: string; _user_id: string }
         Returns: boolean

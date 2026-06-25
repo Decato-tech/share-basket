@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { ChevronLeft, Copy, LogOut } from "lucide-react";
-import { fetchMembers, fetchMyHousehold, type Household, type MemberProfile } from "@/lib/grocery";
+import { fetchHouseholdInviteCode, fetchMembers, fetchMyHousehold, type Household, type MemberProfile } from "@/lib/grocery";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useT, type Lang } from "@/lib/i18n";
 
@@ -27,6 +27,7 @@ export function SettingsScreen() {
   const { t, lang, setLang } = useT();
   const [household, setHousehold] = useState<Household | null>(null);
   const [members, setMembers] = useState<MemberProfile[]>([]);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -44,12 +45,18 @@ export function SettingsScreen() {
       if (h) {
         loadedHouseholdIdRef.current = h.id;
         setMembers(await fetchMembers(h.id));
+        try {
+          setInviteCode(await fetchHouseholdInviteCode(h.id));
+        } catch {
+          setInviteCode(null);
+        }
         return;
       }
 
       const previousHouseholdId = loadedHouseholdIdRef.current;
       loadedHouseholdIdRef.current = null;
       setMembers([]);
+      setInviteCode(null);
 
       if (previousHouseholdId) {
         toast.error(t("household_access_removed"));
@@ -121,8 +128,8 @@ export function SettingsScreen() {
   }
 
   function copyCode() {
-    if (!household) return;
-    navigator.clipboard.writeText(household.invite_code);
+    if (!inviteCode) return;
+    navigator.clipboard.writeText(inviteCode);
     toast.success(t("invite_copied"));
   }
 
@@ -180,14 +187,16 @@ export function SettingsScreen() {
               </div>
             </section>
 
-            <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
-              <h2 className="text-sm font-semibold text-muted-foreground">{t("invite_code_label")}</h2>
-              <button onClick={copyCode} className="w-full flex items-center justify-between rounded-xl bg-muted px-4 py-3 active:scale-[0.99] transition">
-                <span className="font-mono text-2xl tracking-widest font-semibold">{household.invite_code}</span>
-                <Copy className="h-5 w-5 text-muted-foreground" />
-              </button>
-              <p className="text-xs text-muted-foreground">{t("invite_share_hint")}</p>
-            </section>
+            {inviteCode ? (
+              <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
+                <h2 className="text-sm font-semibold text-muted-foreground">{t("invite_code_label")}</h2>
+                <button onClick={copyCode} className="w-full flex items-center justify-between rounded-xl bg-muted px-4 py-3 active:scale-[0.99] transition">
+                  <span className="font-mono text-2xl tracking-widest font-semibold">{inviteCode}</span>
+                  <Copy className="h-5 w-5 text-muted-foreground" />
+                </button>
+                <p className="text-xs text-muted-foreground">{t("invite_share_hint")}</p>
+              </section>
+            ) : null}
 
             <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
               <h2 className="text-sm font-semibold text-muted-foreground">{t("household_members")} · {members.length}</h2>
