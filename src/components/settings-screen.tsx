@@ -187,14 +187,16 @@ export function SettingsScreen() {
               </div>
             </section>
 
-            <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
-              <h2 className="text-sm font-semibold text-muted-foreground">{t("invite_code_label")}</h2>
-              <button onClick={copyCode} className="w-full flex items-center justify-between rounded-xl bg-muted px-4 py-3 active:scale-[0.99] transition">
-                <span className="font-mono text-2xl tracking-widest font-semibold">{household.invite_code}</span>
-                <Copy className="h-5 w-5 text-muted-foreground" />
-              </button>
-              <p className="text-xs text-muted-foreground">{t("invite_share_hint")}</p>
-            </section>
+            {inviteCode ? (
+              <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
+                <h2 className="text-sm font-semibold text-muted-foreground">{t("invite_code_label")}</h2>
+                <button onClick={copyCode} className="w-full flex items-center justify-between rounded-xl bg-muted px-4 py-3 active:scale-[0.99] transition">
+                  <span className="font-mono text-2xl tracking-widest font-semibold">{inviteCode}</span>
+                  <Copy className="h-5 w-5 text-muted-foreground" />
+                </button>
+                <p className="text-xs text-muted-foreground">{t("invite_share_hint")}</p>
+              </section>
+            ) : null}
 
             <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
               <h2 className="text-sm font-semibold text-muted-foreground">{t("household_members")} · {members.length}</h2>
