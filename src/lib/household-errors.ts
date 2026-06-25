@@ -1,7 +1,8 @@
 export type HouseholdRpcErrorKey =
   | "already_in_household"
   | "invalid_invite_code"
-  | "not_authenticated";
+  | "not_authenticated"
+  | "household_lookup_unavailable";
 
 type HouseholdErrorLanguage = "en" | "nl";
 
@@ -21,6 +22,10 @@ const householdRpcErrorMessages: Record<
     en: "Please sign in again and retry.",
     nl: "Log opnieuw in en probeer het nog eens.",
   },
+  household_lookup_unavailable: {
+    en: "Household loading is temporarily unavailable while the database update finishes. Please refresh in a moment.",
+    nl: "Huishouden laden is tijdelijk niet beschikbaar terwijl de database-update wordt afgerond. Vernieuw de pagina zo meteen.",
+  },
 };
 
 export function householdRpcErrorKey(message: string): HouseholdRpcErrorKey | null {
@@ -36,6 +41,13 @@ export function householdRpcErrorKey(message: string): HouseholdRpcErrorKey | nu
 
   if (normalized.includes("not authenticated")) {
     return "not_authenticated";
+  }
+
+  if (
+    normalized.includes("get_my_household") &&
+    (normalized.includes("schema cache") || normalized.includes("could not find the function"))
+  ) {
+    return "household_lookup_unavailable";
   }
 
   return null;

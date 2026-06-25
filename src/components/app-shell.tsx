@@ -37,13 +37,14 @@ import { CATEGORIES, STORES, suggestCategory } from "@/lib/categories";
 import { filterGroceryItems, isGroceryValidationError, type GroceryItem } from "@/lib/grocery";
 import { Onboarding } from "@/components/onboarding";
 import { ItemEditDialog, type EditDraft } from "@/components/item-edit-dialog";
+import { householdRpcErrorMessage } from "@/lib/household-errors";
 import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
 import { useGroceryData } from "@/hooks/use-grocery-data";
 
 type ViewMode = "all" | "category" | "store";
 
 export function AppShell() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const catLabel = useCategoryLabel();
   const storeLabel = useStoreLabel();
   const [view, setView] = useState<ViewMode>("all");
@@ -66,9 +67,9 @@ export function AppShell() {
         toast.error(t("please_enter_custom_store"));
         return;
       }
-      toast.error((error as Error).message);
+      toast.error(householdRpcErrorMessage((error as Error).message, lang));
     },
-    [t],
+    [lang, t],
   );
 
   const handleRealtimeUnavailable = useCallback(() => {
@@ -441,7 +442,7 @@ function ItemList({
   onEdit: (i: GroceryItem) => void;
   faded?: boolean;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const catLabel = useCategoryLabel();
   const storeLabel = useStoreLabel();
   if (items.length === 0) {
