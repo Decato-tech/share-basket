@@ -50,6 +50,15 @@ export function householdRpcErrorKey(message: string): HouseholdRpcErrorKey | nu
     return "household_lookup_unavailable";
   }
 
+  if (
+    normalized.includes("permission denied for function") &&
+    (normalized.includes("user_household_ids") ||
+      normalized.includes("is_household_member") ||
+      normalized.includes("get_my_household"))
+  ) {
+    return "household_lookup_unavailable";
+  }
+
   return null;
 }
 

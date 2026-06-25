@@ -26,6 +26,17 @@ describe("householdRpcErrorKey", () => {
     );
   });
 
+  it("recognizes household policy helper permission errors", () => {
+    assert.equal(
+      householdRpcErrorKey("permission denied for function user_household_ids"),
+      "household_lookup_unavailable",
+    );
+    assert.equal(
+      householdRpcErrorKey("permission denied for function is_household_member"),
+      "household_lookup_unavailable",
+    );
+  });
+
   it("leaves unknown messages untouched", () => {
     assert.equal(householdRpcErrorKey("Database temporarily unavailable"), null);
   });

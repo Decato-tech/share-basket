@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(16);
+SELECT plan(18);
 
 SELECT ok(
   NOT has_schema_privilege('anon', 'private', 'USAGE'),
@@ -53,6 +53,39 @@ SELECT is(
   to_regprocedure('public.user_household_ids(uuid)'),
   NULL,
   'the arbitrary-user public household IDs helper is removed'
+);
+
+
+SELECT is(
+  (
+    SELECT count(*)
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN ('households', 'household_members', 'grocery_items')
+      AND (
+        qual ILIKE '%public.is_household_member%'
+        OR qual ILIKE '%public.user_household_ids%'
+        OR with_check ILIKE '%public.is_household_member%'
+        OR with_check ILIKE '%public.user_household_ids%'
+      )
+  ),
+  0::bigint,
+  'household RLS policies do not reference public membership helpers'
+);
+
+SELECT is(
+  (
+    SELECT count(*)
+    FROM pg_policies
+    WHERE schemaname = 'realtime'
+      AND tablename = 'messages'
+      AND (
+        qual ILIKE '%public.is_household_member%'
+        OR qual ILIKE '%public.user_household_ids%'
+      )
+  ),
+  0::bigint,
+  'realtime RLS policy does not reference public membership helpers'
 );
 
 SELECT ok(
