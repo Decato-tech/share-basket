@@ -17,6 +17,15 @@ describe("householdRpcErrorKey", () => {
     assert.equal(householdRpcErrorKey("Not authenticated"), "not_authenticated");
   });
 
+  it("recognizes household lookup schema cache misses", () => {
+    assert.equal(
+      householdRpcErrorKey(
+        "Could not find the function public.get_my_household without parameters in the schema cache",
+      ),
+      "household_lookup_unavailable",
+    );
+  });
+
   it("leaves unknown messages untouched", () => {
     assert.equal(householdRpcErrorKey("Database temporarily unavailable"), null);
   });
@@ -31,6 +40,16 @@ describe("householdRpcErrorMessage", () => {
     assert.match(
       householdRpcErrorMessage("User already belongs to a household", "nl"),
       /hoort al bij een huishouden/i,
+    );
+  });
+
+  it("returns localized guidance for household lookup availability errors", () => {
+    assert.match(
+      householdRpcErrorMessage(
+        "Could not find the function public.get_my_household without parameters in the schema cache",
+        "en",
+      ),
+      /database update finishes/i,
     );
   });
 
