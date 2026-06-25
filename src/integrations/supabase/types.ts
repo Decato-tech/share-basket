@@ -152,6 +152,15 @@ export type Database = {
         Args: { _household_id: string }
         Returns: string
       }
+      get_my_household: {
+        Args: never
+        Returns: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+        }[]
+      }
       is_household_member: {
         Args: { _household_id: string; _user_id: string }
         Returns: boolean
