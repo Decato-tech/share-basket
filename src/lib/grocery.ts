@@ -113,23 +113,19 @@ export function filterGroceryItems(items: GroceryItem[], search: string) {
 }
 
 export async function fetchMyHousehold(): Promise<Household | null> {
-  const { data: membership, error: membershipError } = await supabase
-    .from("household_members")
-    .select("household_id")
-    .maybeSingle();
-  if (membershipError) throw membershipError;
-  if (!membership) return null;
-  const { data, error } = await supabase
-    .from("households")
-    .select("id, name, created_by, created_at")
-    .eq("id", membership.household_id)
-    .single();
+  const { data, error } = await supabase.rpc("get_my_household");
   if (error) throw error;
-  return { ...(data as Omit<Household, "invite_code">), invite_code: "" } as Household;
+
+  const household = Array.isArray(data) ? data[0] : data;
+  if (!household) return null;
+
+  return { ...household, invite_code: "" } as Household;
 }
 
 export async function fetchHouseholdInviteCode(householdId: string): Promise<string | null> {
-  const { data, error } = await supabase.rpc("get_household_invite_code", { _household_id: householdId });
+  const { data, error } = await supabase.rpc("get_household_invite_code", {
+    _household_id: householdId,
+  });
   if (error) throw error;
   return (data as string | null) ?? null;
 }
