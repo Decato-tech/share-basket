@@ -101,11 +101,8 @@ SELECT set_config(
 );
 
 SELECT lives_ok(
-  $$
-    DELETE FROM public.household_members
-    WHERE user_id = '10000000-0000-0000-0000-000000000001'
-  $$,
-  'a user can leave their household'
+  $$ SELECT public.leave_current_household() $$,
+  'a user can leave their household through the validated RPC'
 );
 
 SELECT lives_ok(
