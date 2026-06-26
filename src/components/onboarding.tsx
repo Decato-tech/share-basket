@@ -1,15 +1,17 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
-import { Home, Users } from "lucide-react";
+import { Home, LogOut, Users } from "lucide-react";
 import { toast } from "sonner";
 import { householdRpcErrorKey, householdRpcErrorMessage } from "@/lib/household-errors";
 import { useT } from "@/lib/i18n";
 
 export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
+  const navigate = useNavigate();
   const { t, lang } = useT();
   const [tab, setTab] = useState<"create" | "join">("create");
   const [name, setName] = useState("");
@@ -50,6 +52,12 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
     if (error) return showError(error);
     toast.success(t("joined_household"));
     await onDone();
+  }
+
+  async function signOut() {
+    if (loading) return;
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
   }
 
   return (
@@ -131,6 +139,14 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
             </div>
           )}
         </div>
+        <Button
+          variant="ghost"
+          onClick={signOut}
+          disabled={loading}
+          className="mt-4 w-full rounded-xl text-muted-foreground"
+        >
+          <LogOut className="h-4 w-4 mr-2" /> {t("sign_out")}
+        </Button>
       </div>
     </div>
   );
