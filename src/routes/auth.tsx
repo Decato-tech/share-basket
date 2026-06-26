@@ -14,7 +14,10 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in — Household Groceries" },
-      { name: "description", content: "Sign in or create an account to share grocery lists with your household." },
+      {
+        name: "description",
+        content: "Sign in or create an account to share grocery lists with your household.",
+      },
     ],
   }),
   component: AuthPage,
@@ -113,40 +116,51 @@ function AuthPage() {
             <div className="mb-5 rounded-xl border border-primary/20 bg-primary/10 p-3 text-sm">
               <p className="font-medium">{t("check_email_title")}</p>
               <p className="mt-1 text-muted-foreground">
-                {t("check_email_desc")} <span className="font-medium text-foreground">{confirmationEmail}</span>
+                {t("check_email_desc")}{" "}
+                <span className="font-medium text-foreground">{confirmationEmail}</span>
               </p>
             </div>
           )}
-
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
               <div className="space-y-1.5">
                 <Label htmlFor="name">{t("name")}</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("your_name")} />
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder={t("your_name")}
+                />
               </div>
             )}
             <div className="space-y-1.5">
               <Label htmlFor="email">{t("email")}</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="you@example.com"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">{t("password")}</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" />
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="••••••••"
+              />
             </div>
             <Button type="submit" className="w-full h-11 rounded-xl" disabled={loading}>
               {loading ? t("please_wait") : mode === "signin" ? t("sign_in") : t("create_account")}
             </Button>
-            <p className="text-xs text-center text-muted-foreground">
-              {mode === "signin" ? t("no_account") : t("have_account")}{" "}
-              <button
-                type="button"
-                onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-                className="text-primary font-medium hover:underline"
-              >
-                {mode === "signin" ? t("sign_up") : t("sign_in")}
-              </button>
-            </p>
           </form>
         </div>
       </div>
