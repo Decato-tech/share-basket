@@ -166,6 +166,7 @@ export type Database = {
         Returns: boolean
       }
       join_household_by_code: { Args: { _code: string }; Returns: string }
+      leave_current_household: { Args: never; Returns: string | null }
       user_household_ids: { Args: { _user_id: string }; Returns: string[] }
     }
     Enums: {
