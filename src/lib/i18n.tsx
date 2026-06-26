@@ -20,15 +20,18 @@ const dict = {
   please_wait: { en: "Please wait…", nl: "Even geduld…" },
   have_account: { en: "Already have an account?", nl: "Heb je al een account?" },
   no_account: { en: "Don't have an account?", nl: "Nog geen account?" },
-  account_created: { en: "Account created — you're in!", nl: "Account aangemaakt — je bent ingelogd!" },
-  check_email_to_confirm: {
-    en: "Check your email to confirm your account.",
-    nl: "Controleer je e-mail om je account te bevestigen.",
+  account_created: {
+    en: "Account created — you're in!",
+    nl: "Account aangemaakt — je bent ingelogd!",
   },
-  check_email_title: { en: "Confirm your email", nl: "Bevestig je e-mail" },
+  check_email_to_confirm: {
+    en: "If this email can be used to create an account, check your inbox for a confirmation link.",
+    nl: "Als dit e-mailadres gebruikt kan worden om een account aan te maken, sturen we een bevestigingslink.",
+  },
+  check_email_title: { en: "Check your email", nl: "Controleer je e-mail" },
   check_email_desc: {
-    en: "We sent a confirmation link to",
-    nl: "We hebben een bevestigingslink gestuurd naar",
+    en: "If this email is new, we sent a confirmation link to",
+    nl: "Als dit e-mailadres nieuw is, hebben we een bevestigingslink gestuurd naar",
   },
 
   // Onboarding
@@ -57,7 +60,10 @@ const dict = {
   store: { en: "Store", nl: "Winkel" },
   any_store: { en: "Any store", nl: "Elke winkel" },
   custom_store: { en: "Custom store name", nl: "Eigen winkelnaam" },
-  please_enter_custom_store: { en: "Please enter a custom store name", nl: "Voer een eigen winkelnaam in" },
+  please_enter_custom_store: {
+    en: "Please enter a custom store name",
+    nl: "Voer een eigen winkelnaam in",
+  },
   category: { en: "Category", nl: "Categorie" },
   search_items: { en: "Search items", nl: "Zoek producten" },
   all_items: { en: "All", nl: "Alles" },
@@ -89,11 +95,23 @@ const dict = {
   cancel: { en: "Cancel", nl: "Annuleren" },
   delete: { en: "Delete", nl: "Verwijderen" },
   confirm_delete_item_title: { en: "Delete this item?", nl: "Dit product verwijderen?" },
-  confirm_delete_item_desc: { en: "This removes the item from the shared list for everyone in your household.", nl: "Dit verwijdert het product uit de gedeelde lijst voor iedereen in je huishouden." },
-  confirm_clear_completed_title: { en: "Clear completed items?", nl: "Afgeronde producten wissen?" },
-  confirm_clear_completed_desc: { en: "This permanently removes all completed items from the shared list.", nl: "Dit verwijdert alle afgeronde producten definitief uit de gedeelde lijst." },
+  confirm_delete_item_desc: {
+    en: "This removes the item from the shared list for everyone in your household.",
+    nl: "Dit verwijdert het product uit de gedeelde lijst voor iedereen in je huishouden.",
+  },
+  confirm_clear_completed_title: {
+    en: "Clear completed items?",
+    nl: "Afgeronde producten wissen?",
+  },
+  confirm_clear_completed_desc: {
+    en: "This permanently removes all completed items from the shared list.",
+    nl: "Dit verwijdert alle afgeronde producten definitief uit de gedeelde lijst.",
+  },
   confirm_leave_household_title: { en: "Leave this household?", nl: "Dit huishouden verlaten?" },
-  confirm_leave_household_desc: { en: "You will lose access to this shared grocery list unless someone invites you again.", nl: "Je verliest toegang tot deze gedeelde boodschappenlijst totdat iemand je opnieuw uitnodigt." },
+  confirm_leave_household_desc: {
+    en: "You will lose access to this shared grocery list unless someone invites you again.",
+    nl: "Je verliest toegang tot deze gedeelde boodschappenlijst totdat iemand je opnieuw uitnodigt.",
+  },
   saved: { en: "Saved", nl: "Opgeslagen" },
 
   // Settings
@@ -112,7 +130,10 @@ const dict = {
   language: { en: "Language", nl: "Taal" },
   english: { en: "English", nl: "Engels" },
   dutch: { en: "Dutch", nl: "Nederlands" },
-  settings_load_failed: { en: "Settings could not be loaded", nl: "Instellingen konden niet worden geladen" },
+  settings_load_failed: {
+    en: "Settings could not be loaded",
+    nl: "Instellingen konden niet worden geladen",
+  },
   retry: { en: "Retry", nl: "Opnieuw proberen" },
   household_access_removed: {
     en: "You no longer have access to this household.",
@@ -153,20 +174,25 @@ function readInitial(): Lang {
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("en");
 
-  useEffect(() => { setLangState(readInitial()); }, []);
+  useEffect(() => {
+    setLangState(readInitial());
+  }, []);
 
-  const value = useMemo<Ctx>(() => ({
-    lang,
-    setLang: (l) => {
-      setLangState(l);
-      try {
-        window.localStorage.setItem(STORAGE_KEY, l);
-      } catch {
-        // Ignore storage errors, for example in private browsing.
-      }
-    },
-    t: (k) => dict[k]?.[lang] ?? (dict[k]?.en ?? k),
-  }), [lang]);
+  const value = useMemo<Ctx>(
+    () => ({
+      lang,
+      setLang: (l) => {
+        setLangState(l);
+        try {
+          window.localStorage.setItem(STORAGE_KEY, l);
+        } catch {
+          // Ignore storage errors, for example in private browsing.
+        }
+      },
+      t: (k) => dict[k]?.[lang] ?? dict[k]?.en ?? k,
+    }),
+    [lang],
+  );
 
   return <LangContext.Provider value={value}>{children}</LangContext.Provider>;
 }
