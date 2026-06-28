@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { categoryKeyFromStored } from "./categories";
+import type { CategoryKey } from "./categories";
 
 export type Lang = "en" | "nl";
 
@@ -141,16 +143,27 @@ const dict = {
   },
 
   // Categories
-  cat_fruit_vegetables: { en: "Fruit & Vegetables", nl: "Groente & Fruit" },
+  cat_fruit: { en: "Fruit", nl: "Fruit" },
+  cat_vegetables: { en: "Vegetables", nl: "Groente" },
   cat_dairy: { en: "Dairy", nl: "Zuivel" },
-  cat_meat_fish: { en: "Meat & Fish", nl: "Vlees & Vis" },
+  cat_eggs: { en: "Eggs", nl: "Eieren" },
+  cat_meat: { en: "Meat", nl: "Vlees" },
+  cat_fish_seafood: { en: "Fish & Seafood", nl: "Vis & Zeevruchten" },
+  cat_vegetarian_vegan: { en: "Vegetarian & Vegan", nl: "Vegetarisch & Vegan" },
   cat_bakery: { en: "Bakery", nl: "Brood & Bakkerij" },
+  cat_breakfast: { en: "Breakfast", nl: "Ontbijt" },
+  cat_pantry: { en: "Pantry", nl: "Voorraadkast" },
+  cat_canned_jarred: { en: "Canned & Jarred", nl: "Blik & Pot" },
+  cat_sauces_condiments: { en: "Sauces & Condiments", nl: "Sauzen & Smaakmakers" },
+  cat_herbs_spices: { en: "Herbs & Spices", nl: "Kruiden & Specerijen" },
+  cat_snacks: { en: "Snacks", nl: "Snacks" },
   cat_drinks: { en: "Drinks", nl: "Dranken" },
   cat_frozen: { en: "Frozen", nl: "Diepvries" },
-  cat_pantry: { en: "Pantry", nl: "Voorraadkast" },
-  cat_snacks: { en: "Snacks", nl: "Snacks" },
   cat_household: { en: "Household", nl: "Huishouden" },
+  cat_cleaning: { en: "Cleaning", nl: "Schoonmaak" },
   cat_personal_care: { en: "Personal Care", nl: "Persoonlijke verzorging" },
+  cat_baby_kids: { en: "Baby & Kids", nl: "Baby & Kind" },
+  cat_pet_supplies: { en: "Pet Supplies", nl: "Huisdieren" },
   cat_other: { en: "Other", nl: "Overig" },
 
   // Stores
@@ -203,50 +216,9 @@ export function useT() {
   return ctx;
 }
 
-// ===== Category key mapping (stable DB value = English label) =====
-export const CATEGORY_KEYS = [
-  "fruit_vegetables",
-  "dairy",
-  "meat_fish",
-  "bakery",
-  "drinks",
-  "frozen",
-  "pantry",
-  "snacks",
-  "household",
-  "personal_care",
-  "other",
-] as const;
-export type CategoryKey = (typeof CATEGORY_KEYS)[number];
-
-const KEY_TO_EN: Record<CategoryKey, string> = {
-  fruit_vegetables: "Fruit & Vegetables",
-  dairy: "Dairy",
-  meat_fish: "Meat & Fish",
-  bakery: "Bakery",
-  drinks: "Drinks",
-  frozen: "Frozen",
-  pantry: "Pantry",
-  snacks: "Snacks",
-  household: "Household",
-  personal_care: "Personal Care",
-  other: "Other",
-};
-
-const EN_TO_KEY: Record<string, CategoryKey> = Object.fromEntries(
-  Object.entries(KEY_TO_EN).map(([k, v]) => [v, k as CategoryKey]),
-) as Record<string, CategoryKey>;
-
-/** Canonical English label stored in DB. */
-export function categoryStoredValue(key: CategoryKey): string {
-  return KEY_TO_EN[key];
-}
-
-/** DB value (English) -> stable key. Unknown values fall back to "other". */
-export function categoryKeyFromStored(stored: string | null | undefined): CategoryKey {
-  if (!stored) return "other";
-  return EN_TO_KEY[stored] ?? "other";
-}
+// ===== Category key mapping =====
+export type { CategoryKey };
+export { categoryKeyFromStored, categoryStoredValue } from "./categories";
 
 /** Translate a DB-stored category value into the active language label. */
 export function useCategoryLabel() {
