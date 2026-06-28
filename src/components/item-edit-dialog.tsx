@@ -112,11 +112,7 @@ export function ItemEditDialog({
   }
 
   function changeStore(store: string) {
-    setDraft((current) => ({
-      ...current,
-      store,
-      status: current.status === "not_in_stock" ? "needed" : current.status,
-    }));
+    setDraft((current) => ({ ...current, store }));
   }
 
   async function save() {

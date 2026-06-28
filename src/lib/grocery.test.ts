@@ -29,8 +29,6 @@ function item(overrides: Partial<GroceryItem>): GroceryItem {
     store: null,
     notes: null,
     status: "needed",
-    status_updated_by: null,
-    status_updated_at: null,
     not_in_stock_note: null,
     checked: false,
     added_by: "user-1",
