@@ -180,10 +180,10 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
 
   const clearCompletedItems = useCallback(async () => {
     if (!household) return false;
-    const completedItems = items.filter((item) => item.checked);
+    const completedItems = items.filter(isItemBought);
     if (completedItems.length === 0) return true;
 
-    removeLocalItems((item) => item.checked);
+    removeLocalItems(isItemBought);
     try {
       await deleteCompletedGroceryItems(household.id);
       return true;

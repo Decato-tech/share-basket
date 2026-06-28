@@ -7,6 +7,9 @@ export type GroceryItemInsert = TablesInsert<"grocery_items">;
 export type GroceryItemUpdate = TablesUpdate<"grocery_items">;
 export type Household = Tables<"households">;
 
+export const GROCERY_ITEM_STATUSES = ["needed", "bought", "not_in_stock"] as const;
+export type GroceryItemStatus = (typeof GROCERY_ITEM_STATUSES)[number];
+
 export type MemberProfile = {
   user_id: string;
   name: string;
@@ -22,6 +25,8 @@ export type GroceryItemDraft = {
   store: string;
   custom_store?: string | null;
   notes?: string;
+  status?: GroceryItemStatus;
+  not_in_stock_note?: string | null;
 };
 
 export class GroceryValidationError extends Error {
@@ -47,6 +52,29 @@ function normalizeDraftStore(draft: Pick<GroceryItemDraft, "store" | "custom_sto
   const normalizedStore = normalizeStoreDraft(draft);
   if (normalizedStore.error) throw new GroceryValidationError(normalizedStore.error);
   return normalizedStore.store;
+}
+
+function isKnownStatus(status: string | null | undefined): status is GroceryItemStatus {
+  return GROCERY_ITEM_STATUSES.includes(status as GroceryItemStatus);
+}
+
+export function getGroceryItemStatus(
+  item: Pick<GroceryItem, "checked"> & { status?: string | null },
+): GroceryItemStatus {
+  if (isKnownStatus(item.status)) return item.status;
+  return item.checked ? "bought" : "needed";
+}
+
+export function isItemBought(item: Pick<GroceryItem, "checked"> & { status?: string | null }) {
+  return getGroceryItemStatus(item) === "bought";
+}
+
+export function isItemNeeded(item: Pick<GroceryItem, "checked"> & { status?: string | null }) {
+  return getGroceryItemStatus(item) === "needed";
+}
+
+export function isItemNotInStock(item: Pick<GroceryItem, "checked"> & { status?: string | null }) {
+  return getGroceryItemStatus(item) === "not_in_stock";
 }
 
 function isMissingGetMyHouseholdRpcError(error: unknown) {
@@ -78,11 +106,13 @@ async function fetchMyHouseholdFromTables(): Promise<Household | null> {
 
   return { ...(data as Omit<Household, "invite_code">), invite_code: "" } as Household;
 }
+
 export function prepareGroceryInsert(
   householdId: string,
   userId: string,
   draft: GroceryItemDraft,
 ): GroceryItemInsert {
+  const status = draft.status ?? "needed";
   return {
     household_id: householdId,
     added_by: userId,
@@ -91,21 +121,44 @@ export function prepareGroceryInsert(
     category: draft.category,
     store: normalizeDraftStore(draft),
     notes: nullableTrimmed(draft.notes),
+    status,
+    checked: status === "bought",
+    not_in_stock_note: status === "not_in_stock" ? nullableTrimmed(draft.not_in_stock_note) : null,
   };
 }
 
 export function prepareGroceryUpdate(draft: GroceryItemDraft): GroceryItemUpdate {
-  return {
+  const update: GroceryItemUpdate = {
     name: draft.name.trim(),
     quantity: nullableTrimmed(draft.quantity),
     category: draft.category,
     store: normalizeDraftStore(draft),
     notes: nullableTrimmed(draft.notes),
   };
+
+  if (draft.status) {
+    update.status = draft.status;
+    update.checked = draft.status === "bought";
+  }
+
+  if (draft.not_in_stock_note !== undefined) {
+    update.not_in_stock_note = nullableTrimmed(draft.not_in_stock_note);
+  }
+
+  return update;
 }
 
 export function prepareCheckedUpdate(checked: boolean): GroceryItemUpdate {
-  return { checked };
+  return { checked, status: checked ? "bought" : "needed" };
+}
+
+export function prepareStatusUpdate(
+  status: GroceryItemStatus,
+  notInStockNote?: string | null,
+): GroceryItemUpdate {
+  const update: GroceryItemUpdate = { status, checked: status === "bought" };
+  if (status === "not_in_stock") update.not_in_stock_note = nullableTrimmed(notInStockNote);
+  return update;
 }
 
 export function sortItemsNewestFirst(items: GroceryItem[]) {
@@ -137,6 +190,7 @@ export function filterGroceryItems(items: GroceryItem[], search: string) {
     (item) =>
       item.name.toLowerCase().includes(query) ||
       (item.notes ?? "").toLowerCase().includes(query) ||
+      (item.not_in_stock_note ?? "").toLowerCase().includes(query) ||
       (item.store ?? "").toLowerCase().includes(query),
   );
 }
@@ -230,6 +284,21 @@ export async function updateGroceryItemChecked(id: string, checked: boolean): Pr
   const { data, error } = await supabase
     .from("grocery_items")
     .update(prepareCheckedUpdate(checked))
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as GroceryItem;
+}
+
+export async function updateGroceryItemStatus(
+  id: string,
+  status: GroceryItemStatus,
+  notInStockNote?: string | null,
+): Promise<GroceryItem> {
+  const { data, error } = await supabase
+    .from("grocery_items")
+    .update(prepareStatusUpdate(status, notInStockNote))
     .eq("id", id)
     .select("*")
     .single();

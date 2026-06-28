@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -10,6 +12,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,9 +47,19 @@ import {
   ListChecks,
   X,
   Undo2,
+  MoreHorizontal,
 } from "lucide-react";
 import { CATEGORIES, STORES, categoryKeyFromStored, suggestCategory } from "@/lib/categories";
-import { filterGroceryItems, isGroceryValidationError, type GroceryItem } from "@/lib/grocery";
+import {
+  filterGroceryItems,
+  getGroceryItemStatus,
+  isGroceryValidationError,
+  isItemBought,
+  isItemNeeded,
+  isItemNotInStock,
+  type GroceryItem,
+  type GroceryItemStatus,
+} from "@/lib/grocery";
 import { Onboarding } from "@/components/onboarding";
 import { ItemEditDialog, type EditDraft } from "@/components/item-edit-dialog";
 import { householdRpcErrorMessage } from "@/lib/household-errors";
@@ -51,6 +76,8 @@ export function AppShell() {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<GroceryItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [notInStockItem, setNotInStockItem] = useState<GroceryItem | null>(null);
+  const [notInStockNote, setNotInStockNote] = useState("");
 
   // quick add
   const [qName, setQName] = useState("");
@@ -84,6 +111,7 @@ export function AppShell() {
     createItem,
     saveItem,
     setItemChecked,
+    setItemStatus,
     removeItem,
     clearCompletedItems,
   } = useGroceryData({
@@ -102,8 +130,10 @@ export function AppShell() {
   }, [qName, qCategoryTouched]);
 
   const filtered = useMemo(() => filterGroceryItems(items, search), [items, search]);
-  const active = filtered.filter((i) => !i.checked);
-  const done = filtered.filter((i) => i.checked);
+  const needed = filtered.filter(isItemNeeded);
+  const notInStock = filtered.filter(isItemNotInStock);
+  const done = filtered.filter(isItemBought);
+  const outstandingCount = needed.length + notInStock.length;
 
   async function quickAdd() {
     if (!household || !qName.trim() || quickAddPending) return;
@@ -127,18 +157,53 @@ export function AppShell() {
   }
 
   async function toggleCheck(item: GroceryItem) {
-    const updated = await setItemChecked(item, !item.checked);
-    if (!updated?.checked) return;
+    const nextBought = getGroceryItemStatus(item) !== "bought";
+    const updated = await setItemChecked(item, nextBought);
+    if (!updated || getGroceryItemStatus(updated) !== "bought") return;
 
     toast(t("checked_off"), {
       action: {
         label: t("undo"),
         onClick: async () => {
-          await setItemChecked(updated, false);
+          await setItemStatus(updated, "needed");
         },
       },
       icon: <Undo2 className="h-4 w-4" />,
     });
+  }
+
+  async function changeItemStatus(
+    item: GroceryItem,
+    status: GroceryItemStatus,
+    note?: string | null,
+  ) {
+    const updated = await setItemStatus(item, status, note);
+    if (updated && status === "bought") {
+      toast(t("checked_off"), {
+        action: {
+          label: t("undo"),
+          onClick: async () => {
+            await setItemStatus(updated, "needed");
+          },
+        },
+        icon: <Undo2 className="h-4 w-4" />,
+      });
+    }
+    return updated;
+  }
+
+  function openNotInStockDialog(item: GroceryItem) {
+    setNotInStockItem(item);
+    setNotInStockNote(item.not_in_stock_note ?? "");
+  }
+
+  async function saveNotInStock() {
+    if (!notInStockItem) return;
+    const updated = await changeItemStatus(notInStockItem, "not_in_stock", notInStockNote);
+    if (updated) {
+      setNotInStockItem(null);
+      setNotInStockNote("");
+    }
   }
 
   async function saveDraft(draft: EditDraft) {
@@ -153,6 +218,47 @@ export function AppShell() {
     if (await clearCompletedItems()) toast.success(t("cleared"));
   }
 
+  function groupedItems(sectionItems: GroceryItem[]) {
+    const groups: Record<string, GroceryItem[]> = {};
+    for (const it of sectionItems) {
+      const k =
+        view === "category" ? categoryKeyFromStored(it.category) : it.store || "__any_store__";
+      (groups[k] ||= []).push(it);
+    }
+    return groups;
+  }
+
+  function renderGroupedItems(sectionItems: GroceryItem[], faded = false) {
+    const groups = groupedItems(sectionItems);
+    return Object.keys(groups)
+      .sort()
+      .map((g) => (
+        <div key={g}>
+          <div className="flex items-center justify-between px-1 mb-1.5">
+            <h2 className="text-sm font-semibold">
+              {view === "category"
+                ? catLabel(g)
+                : g === "__any_store__"
+                  ? t("any_store")
+                  : storeLabel(g)}
+            </h2>
+            <span className="text-xs text-muted-foreground">{groups[g].length}</span>
+          </div>
+          <ItemList
+            items={groups[g]}
+            onToggle={toggleCheck}
+            onEdit={(i) => {
+              setEditing(i);
+              setDialogOpen(true);
+            }}
+            onStatusChange={changeItemStatus}
+            onMarkNotInStock={openNotInStockDialog}
+            faded={faded}
+          />
+        </div>
+      ));
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
@@ -165,15 +271,7 @@ export function AppShell() {
     return <Onboarding onDone={refresh} />;
   }
 
-  // grouping
-  const groups: Record<string, GroceryItem[]> = {};
-  if (view !== "all") {
-    for (const it of active) {
-      const k =
-        view === "category" ? categoryKeyFromStored(it.category) : it.store || "__any_store__";
-      (groups[k] ||= []).push(it);
-    }
-  }
+  const hasAnyItems = needed.length > 0 || notInStock.length > 0 || done.length > 0;
 
   return (
     <div className="min-h-screen bg-background pb-32">
@@ -188,7 +286,7 @@ export function AppShell() {
             <div className="min-w-0">
               <h1 className="truncate font-semibold leading-tight">{household.name}</h1>
               <p className="truncate text-xs text-muted-foreground">
-                {active.length} {t("to_buy")} · {done.length} {t("done")}
+                {outstandingCount} {t("to_buy")} Â· {done.length} {t("done")}
               </p>
             </div>
           </div>
@@ -315,43 +413,45 @@ export function AppShell() {
         </div>
 
         {/* Items */}
-        {active.length === 0 && done.length === 0 ? (
+        {!hasAnyItems ? (
           <EmptyState title={t("list_empty_title")} desc={t("list_empty_desc")} />
         ) : view === "all" ? (
-          <ItemList
-            items={active}
-            onToggle={toggleCheck}
-            onEdit={(i) => {
-              setEditing(i);
-              setDialogOpen(true);
-            }}
-          />
+          <>
+            {needed.length > 0 && (
+              <ItemList
+                items={needed}
+                onToggle={toggleCheck}
+                onEdit={(i) => {
+                  setEditing(i);
+                  setDialogOpen(true);
+                }}
+                onStatusChange={changeItemStatus}
+                onMarkNotInStock={openNotInStockDialog}
+              />
+            )}
+            {notInStock.length > 0 && (
+              <StatusSection title={t("not_in_stock")} count={notInStock.length}>
+                <ItemList
+                  items={notInStock}
+                  onToggle={toggleCheck}
+                  onEdit={(i) => {
+                    setEditing(i);
+                    setDialogOpen(true);
+                  }}
+                  onStatusChange={changeItemStatus}
+                  onMarkNotInStock={openNotInStockDialog}
+                />
+              </StatusSection>
+            )}
+          </>
         ) : (
           <div className="space-y-4">
-            {Object.keys(groups)
-              .sort()
-              .map((g) => (
-                <div key={g}>
-                  <div className="flex items-center justify-between px-1 mb-1.5">
-                    <h2 className="text-sm font-semibold">
-                      {view === "category"
-                        ? catLabel(g)
-                        : g === "__any_store__"
-                          ? t("any_store")
-                          : storeLabel(g)}
-                    </h2>
-                    <span className="text-xs text-muted-foreground">{groups[g].length}</span>
-                  </div>
-                  <ItemList
-                    items={groups[g]}
-                    onToggle={toggleCheck}
-                    onEdit={(i) => {
-                      setEditing(i);
-                      setDialogOpen(true);
-                    }}
-                  />
-                </div>
-              ))}
+            {renderGroupedItems(needed)}
+            {notInStock.length > 0 && (
+              <StatusSection title={t("not_in_stock")} count={notInStock.length}>
+                <div className="space-y-4">{renderGroupedItems(notInStock)}</div>
+              </StatusSection>
+            )}
           </div>
         )}
 
@@ -360,7 +460,7 @@ export function AppShell() {
           <div className="pt-2">
             <div className="flex items-center justify-between px-1 mb-1.5">
               <h2 className="text-sm font-semibold text-muted-foreground">
-                {t("completed")} · {done.length}
+                {t("completed")} Â· {done.length}
               </h2>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -396,6 +496,8 @@ export function AppShell() {
                 setEditing(i);
                 setDialogOpen(true);
               }}
+              onStatusChange={changeItemStatus}
+              onMarkNotInStock={openNotInStockDialog}
               faded
             />
           </div>
@@ -421,6 +523,37 @@ export function AppShell() {
         onSave={saveDraft}
         onDelete={editing ? deleteItem : undefined}
       />
+
+      <Dialog
+        open={notInStockItem !== null}
+        onOpenChange={(open) => {
+          if (!open) setNotInStockItem(null);
+        }}
+      >
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("item_not_available")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="not-in-stock-note">
+              {t("add_note")}
+            </label>
+            <Textarea
+              id="not-in-stock-note"
+              value={notInStockNote}
+              onChange={(e) => setNotInStockNote(e.target.value)}
+              placeholder={t("try_another_store")}
+              rows={3}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setNotInStockItem(null)}>
+              {t("cancel")}
+            </Button>
+            <Button onClick={saveNotInStock}>{t("mark_not_in_stock")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -437,15 +570,39 @@ function EmptyState({ title, desc }: { title: string; desc: string }) {
   );
 }
 
+function StatusSection({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: ReactNode;
+}) {
+  return (
+    <div className="pt-2">
+      <div className="flex items-center justify-between px-1 mb-1.5">
+        <h2 className="text-sm font-semibold text-muted-foreground">{title}</h2>
+        <span className="text-xs text-muted-foreground">{count}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function ItemList({
   items,
   onToggle,
   onEdit,
+  onStatusChange,
+  onMarkNotInStock,
   faded = false,
 }: {
   items: GroceryItem[];
   onToggle: (i: GroceryItem) => void;
   onEdit: (i: GroceryItem) => void;
+  onStatusChange: (i: GroceryItem, status: GroceryItemStatus) => void;
+  onMarkNotInStock: (i: GroceryItem) => void;
   faded?: boolean;
 }) {
   const { t } = useT();
@@ -456,35 +613,78 @@ function ItemList({
   }
   return (
     <ul className="bg-card rounded-2xl border shadow-sm divide-y overflow-hidden">
-      {items.map((it) => (
-        <li
-          key={it.id}
-          className={`flex items-center gap-3 px-3 py-2 ${faded ? "opacity-60" : ""}`}
-        >
-          <button
-            onClick={() => onToggle(it)}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition ${it.checked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"}`}
-            aria-label={it.checked ? "Uncheck" : "Check"}
+      {items.map((it) => {
+        const status = getGroceryItemStatus(it);
+        const bought = status === "bought";
+        const outOfStock = status === "not_in_stock";
+
+        return (
+          <li
+            key={it.id}
+            className={`flex items-center gap-2 px-3 py-2 ${faded ? "opacity-60" : ""}`}
           >
-            {it.checked && (
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                <path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4L8.5 12 15.3 5.3a1 1 0 011.4 0z" />
-              </svg>
-            )}
-          </button>
-          <button onClick={() => onEdit(it)} className="min-h-11 flex-1 min-w-0 text-left">
-            <div className={`font-medium truncate ${it.checked ? "line-through" : ""}`}>
-              {it.name}
-            </div>
-            <div className="text-xs text-muted-foreground truncate flex gap-1.5">
-              {it.quantity && <span>{it.quantity}</span>}
-              {it.quantity && (it.category || it.store) && <span>·</span>}
-              {it.category && <span>{catLabel(it.category)}</span>}
-              {it.store && <span>· {storeLabel(it.store)}</span>}
-            </div>
-          </button>
-        </li>
-      ))}
+            <button
+              onClick={() => onToggle(it)}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition ${bought ? "bg-primary border-primary text-primary-foreground" : outOfStock ? "border-amber-500 text-amber-600" : "border-muted-foreground/30"}`}
+              aria-label={bought ? t("mark_needed") : t("mark_bought")}
+            >
+              {bought && (
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4L8.5 12 15.3 5.3a1 1 0 011.4 0z" />
+                </svg>
+              )}
+              {outOfStock && !bought && <X className="h-4 w-4" />}
+            </button>
+            <button onClick={() => onEdit(it)} className="min-h-11 flex-1 min-w-0 text-left">
+              <div className={`font-medium truncate ${bought ? "line-through" : ""}`}>
+                {it.name}
+              </div>
+              <div className="text-xs text-muted-foreground truncate flex gap-1.5 items-center">
+                {it.quantity && <span>{it.quantity}</span>}
+                {it.quantity && (it.category || it.store) && <span>Â·</span>}
+                {it.category && <span>{catLabel(it.category)}</span>}
+                {it.store && <span>Â· {storeLabel(it.store)}</span>}
+              </div>
+              {outOfStock && (
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  <Badge variant="outline" className="border-amber-400 text-amber-700">
+                    {t("not_in_stock")}
+                  </Badge>
+                  {it.not_in_stock_note && <span className="truncate">{it.not_in_stock_note}</span>}
+                </div>
+              )}
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0 rounded-xl">
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span className="sr-only">{t("item_actions")}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {outOfStock ? (
+                  <>
+                    <DropdownMenuItem onClick={() => onStatusChange(it, "needed")}>
+                      {t("mark_needed")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onStatusChange(it, "bought")}>
+                      {t("mark_bought")}
+                    </DropdownMenuItem>
+                  </>
+                ) : bought ? (
+                  <DropdownMenuItem onClick={() => onStatusChange(it, "needed")}>
+                    {t("mark_needed")}
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => onMarkNotInStock(it)}>
+                    {t("mark_not_in_stock")}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </li>
+        );
+      })}
     </ul>
   );
 }

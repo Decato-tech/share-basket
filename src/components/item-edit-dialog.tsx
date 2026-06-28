@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CATEGORIES, STORES, categoryKeyFromStored, suggestCategory } from "@/lib/categories";
-import type { GroceryItem } from "@/lib/grocery";
+import { getGroceryItemStatus, type GroceryItem, type GroceryItemStatus } from "@/lib/grocery";
 import { isCustomStore } from "@/lib/stores";
 import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
 import { toast } from "sonner";
@@ -108,6 +108,14 @@ export function ItemEditDialog({
       ...d,
       name,
       category: touchedCategory ? d.category : suggestCategory(name),
+    }));
+  }
+
+  function changeStore(store: string) {
+    setDraft((current) => ({
+      ...current,
+      store,
+      status: current.status === "not_in_stock" ? "needed" : current.status,
     }));
   }
 

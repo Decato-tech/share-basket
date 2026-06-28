@@ -80,6 +80,20 @@ const dict = {
   clear_completed: { en: "Clear completed", nl: "Afgeronde wissen" },
   cleared: { en: "Completed items cleared", nl: "Afgeronde items gewist" },
   checked_off: { en: "Checked off", nl: "Afgevinkt" },
+  not_in_stock: { en: "Not in stock", nl: "Niet op voorraad" },
+  mark_not_in_stock: {
+    en: "Mark as not in stock",
+    nl: "Markeer als niet op voorraad",
+  },
+  mark_needed: { en: "Mark as needed", nl: "Markeer als nodig" },
+  mark_bought: { en: "Mark as bought", nl: "Markeer als gekocht" },
+  item_not_available: {
+    en: "This item was not available",
+    nl: "Dit product was niet beschikbaar",
+  },
+  add_note: { en: "Add note", nl: "Notitie toevoegen" },
+  try_another_store: { en: "Try another store", nl: "Probeer een andere winkel" },
+  item_actions: { en: "Item actions", nl: "Productacties" },
   undo: { en: "Undo", nl: "Ongedaan maken" },
   live_sync_unavailable: {
     en: "Live sync is temporarily unavailable. Your changes will still be saved.",

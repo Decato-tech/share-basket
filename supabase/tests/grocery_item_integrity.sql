@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(14);
+SELECT plan(19);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -86,10 +86,31 @@ SELECT is(
   'the database records the authenticated user as checked_by'
 );
 
+SELECT is(
+  (
+    SELECT status
+    FROM public.grocery_items
+    WHERE id = '50000000-0000-0000-0000-000000000005'
+  ),
+  'bought',
+  'checked=true is stored as bought status for compatibility'
+);
+
+SELECT is(
+  (
+    SELECT status_updated_by
+    FROM public.grocery_items
+    WHERE id = '50000000-0000-0000-0000-000000000005'
+  ),
+  '10000000-0000-0000-0000-000000000001'::uuid,
+  'the database records the authenticated user as status_updated_by'
+);
+
 SELECT ok(
   (
     SELECT created_at > '2020-01-01T00:00:00Z'
       AND checked_at > '2020-01-01T00:00:00Z'
+      AND status_updated_at > '2020-01-01T00:00:00Z'
     FROM public.grocery_items
     WHERE id = '50000000-0000-0000-0000-000000000005'
   ),
@@ -145,7 +166,10 @@ SELECT lives_ok(
 
 SELECT ok(
   (
-    SELECT NOT checked AND checked_by IS NULL AND checked_at IS NULL
+    SELECT NOT checked
+      AND status = 'needed'
+      AND checked_by IS NULL
+      AND checked_at IS NULL
     FROM public.grocery_items
     WHERE id = '50000000-0000-0000-0000-000000000005'
   ),
@@ -153,14 +177,57 @@ SELECT ok(
 );
 
 SELECT throws_ok(
-  $$
+  $
     UPDATE public.grocery_items
     SET checked_by = '20000000-0000-0000-0000-000000000002'
     WHERE id = '50000000-0000-0000-0000-000000000005'
-  $$,
+  $,
   '42501',
   'Check-off audit fields are managed by the database',
   'check-off audit fields cannot be changed without changing checked state'
+);
+
+SELECT throws_ok(
+  $
+    UPDATE public.grocery_items
+    SET status_updated_by = '20000000-0000-0000-0000-000000000002'
+    WHERE id = '50000000-0000-0000-0000-000000000005'
+  $,
+  '42501',
+  'Status audit fields are managed by the database',
+  'status audit fields cannot be changed without changing item status'
+);
+
+SELECT lives_ok(
+  $
+    UPDATE public.grocery_items
+    SET status = 'not_in_stock',
+        not_in_stock_note = 'Try Lidl'
+    WHERE id = '50000000-0000-0000-0000-000000000005'
+  $,
+  'a member can mark an item as not in stock'
+);
+
+SELECT ok(
+  (
+    SELECT status = 'not_in_stock'
+      AND NOT checked
+      AND checked_by IS NULL
+      AND checked_at IS NULL
+      AND not_in_stock_note = 'Try Lidl'
+    FROM public.grocery_items
+    WHERE id = '50000000-0000-0000-0000-000000000005'
+  ),
+  'not-in-stock items remain unchecked and keep their note'
+);
+
+SELECT lives_ok(
+  $
+    UPDATE public.grocery_items
+    SET status = 'bought'
+    WHERE id = '50000000-0000-0000-0000-000000000005'
+  $,
+  'a member can change a not-in-stock item to bought'
 );
 
 SELECT lives_ok(

@@ -4,10 +4,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   filterGroceryItems,
+  getGroceryItemStatus,
   GroceryValidationError,
+  isItemBought,
+  isItemNeeded,
+  isItemNotInStock,
   prepareCheckedUpdate,
   prepareGroceryInsert,
   prepareGroceryUpdate,
+  prepareStatusUpdate,
   reconcileServerItem,
   removeMatchingItems,
   restoreRemovedItems,
@@ -23,6 +28,10 @@ function item(overrides: Partial<GroceryItem>): GroceryItem {
     category: "dairy",
     store: null,
     notes: null,
+    status: "needed",
+    status_updated_by: null,
+    status_updated_at: null,
+    not_in_stock_note: null,
     checked: false,
     added_by: "user-1",
     checked_by: null,
@@ -51,6 +60,9 @@ describe("grocery payload helpers", () => {
         category: "fruit",
         store: null,
         notes: "remember organic",
+        status: "needed",
+        checked: false,
+        not_in_stock_note: null,
       },
     );
   });
@@ -101,9 +113,64 @@ describe("grocery payload helpers", () => {
     );
   });
 
-  it("prepares check-off updates with no unrelated fields", () => {
-    assert.deepEqual(prepareCheckedUpdate(true), { checked: true });
-    assert.deepEqual(prepareCheckedUpdate(false), { checked: false });
+  it("prepares check-off updates as bought/needed status changes", () => {
+    assert.deepEqual(prepareCheckedUpdate(true), { checked: true, status: "bought" });
+    assert.deepEqual(prepareCheckedUpdate(false), { checked: false, status: "needed" });
+  });
+
+  it("prepares explicit item status updates", () => {
+    assert.deepEqual(prepareStatusUpdate("not_in_stock", "  Try Lidl  "), {
+      checked: false,
+      status: "not_in_stock",
+      not_in_stock_note: "Try Lidl",
+    });
+    assert.deepEqual(prepareStatusUpdate("bought"), { checked: true, status: "bought" });
+    assert.deepEqual(prepareStatusUpdate("needed"), { checked: false, status: "needed" });
+  });
+
+  it("includes status edits without deleting an existing not-in-stock note", () => {
+    assert.deepEqual(
+      prepareGroceryUpdate({
+        id: "item-1",
+        name: "Milk",
+        quantity: "",
+        category: "dairy",
+        store: "Lidl",
+        custom_store: "",
+        notes: "",
+        status: "needed",
+      }),
+      {
+        name: "Milk",
+        quantity: null,
+        category: "dairy",
+        store: "Lidl",
+        notes: null,
+        checked: false,
+        status: "needed",
+      },
+    );
+  });
+});
+
+describe("grocery status helpers", () => {
+  it("uses explicit status when present", () => {
+    assert.equal(
+      getGroceryItemStatus(item({ status: "not_in_stock", checked: false })),
+      "not_in_stock",
+    );
+  });
+
+  it("maps legacy checked values when status is absent or unknown", () => {
+    assert.equal(getGroceryItemStatus({ checked: false, status: null }), "needed");
+    assert.equal(getGroceryItemStatus({ checked: true, status: null }), "bought");
+    assert.equal(getGroceryItemStatus({ checked: true, status: "legacy" }), "bought");
+  });
+
+  it("classifies needed, bought, and not-in-stock items", () => {
+    assert.equal(isItemNeeded(item({ status: "needed", checked: false })), true);
+    assert.equal(isItemBought(item({ status: "bought", checked: true })), true);
+    assert.equal(isItemNotInStock(item({ status: "not_in_stock", checked: false })), true);
   });
 });
 
@@ -130,13 +197,14 @@ describe("grocery cache helpers", () => {
   });
 
   it("removes matching items for delete and clear-completed flows", () => {
-    const active = item({ id: "active", checked: false });
-    const done = item({ id: "done", checked: true });
+    const active = item({ id: "active", checked: false, status: "needed" });
+    const notAvailable = item({ id: "not-available", checked: false, status: "not_in_stock" });
+    const done = item({ id: "done", checked: true, status: "bought" });
 
-    assert.deepEqual(
-      removeMatchingItems([active, done], (candidate) => candidate.checked),
-      [active],
-    );
+    assert.deepEqual(removeMatchingItems([active, notAvailable, done], isItemBought), [
+      active,
+      notAvailable,
+    ]);
     assert.deepEqual(
       removeMatchingItems([active, done], (candidate) => candidate.id === "active"),
       [done],
@@ -145,8 +213,13 @@ describe("grocery cache helpers", () => {
 
   it("restores removed items without duplicating stale copies", () => {
     const active = item({ id: "active", checked: false, created_at: "2026-01-01T09:00:00.000Z" });
-    const newerDone = item({ id: "done", checked: true, created_at: "2026-01-01T11:00:00.000Z" });
-    const currentDone = item({ id: "done", name: "stale", checked: true });
+    const newerDone = item({
+      id: "done",
+      checked: true,
+      status: "bought",
+      created_at: "2026-01-01T11:00:00.000Z",
+    });
+    const currentDone = item({ id: "done", name: "stale", checked: true, status: "bought" });
 
     assert.deepEqual(
       restoreRemovedItems([active, currentDone], [newerDone]).map((candidate) => [
@@ -160,12 +233,19 @@ describe("grocery cache helpers", () => {
     );
   });
 
-  it("filters by item name, notes and store", () => {
+  it("filters by item name, notes, not-in-stock note and store", () => {
     const milk = item({ id: "milk", name: "Milk", notes: "lactose free", store: "Jumbo" });
     const apples = item({ id: "apples", name: "Apples", notes: null, store: "Albert Heijn" });
+    const tofu = item({
+      id: "tofu",
+      name: "Tofu",
+      status: "not_in_stock",
+      not_in_stock_note: "Try Lidl",
+    });
 
-    assert.deepEqual(filterGroceryItems([milk, apples], "lactose"), [milk]);
-    assert.deepEqual(filterGroceryItems([milk, apples], "albert"), [apples]);
-    assert.deepEqual(filterGroceryItems([milk, apples], "milk"), [milk]);
+    assert.deepEqual(filterGroceryItems([milk, apples, tofu], "lactose"), [milk]);
+    assert.deepEqual(filterGroceryItems([milk, apples, tofu], "albert"), [apples]);
+    assert.deepEqual(filterGroceryItems([milk, apples, tofu], "milk"), [milk]);
+    assert.deepEqual(filterGroceryItems([milk, apples, tofu], "lidl"), [tofu]);
   });
 });
