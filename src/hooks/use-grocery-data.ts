@@ -11,8 +11,11 @@ import {
   restoreRemovedItems,
   updateGroceryItem,
   updateGroceryItemChecked,
+  updateGroceryItemStatus,
+  isItemBought,
   type GroceryItem,
   type GroceryItemDraft,
+  type GroceryItemStatus,
   type Household,
 } from "@/lib/grocery";
 
