@@ -286,7 +286,7 @@ export function AppShell() {
             <div className="min-w-0">
               <h1 className="truncate font-semibold leading-tight">{household.name}</h1>
               <p className="truncate text-xs text-muted-foreground">
-                {outstandingCount} {t("to_buy")} Â· {done.length} {t("done")}
+                {outstandingCount} {t("to_buy")} · {done.length} {t("done")}
               </p>
             </div>
           </div>
@@ -460,7 +460,7 @@ export function AppShell() {
           <div className="pt-2">
             <div className="flex items-center justify-between px-1 mb-1.5">
               <h2 className="text-sm font-semibold text-muted-foreground">
-                {t("completed")} Â· {done.length}
+                {t("completed")} · {done.length}
               </h2>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -641,9 +641,9 @@ function ItemList({
               </div>
               <div className="text-xs text-muted-foreground truncate flex gap-1.5 items-center">
                 {it.quantity && <span>{it.quantity}</span>}
-                {it.quantity && (it.category || it.store) && <span>Â·</span>}
+                {it.quantity && (it.category || it.store) && <span>·</span>}
                 {it.category && <span>{catLabel(it.category)}</span>}
-                {it.store && <span>Â· {storeLabel(it.store)}</span>}
+                {it.store && <span>· {storeLabel(it.store)}</span>}
               </div>
               {outOfStock && (
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
