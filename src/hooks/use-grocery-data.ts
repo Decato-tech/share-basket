@@ -181,6 +181,20 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
     [applyServerItem, items, removeLocalItems, reportError],
   );
 
+  const setItemStatus = useCallback(
+    async (item: GroceryItem, status: GroceryItemStatus, notInStockNote?: string | null) => {
+      try {
+        const updated = await updateGroceryItemStatus(item.id, status, notInStockNote);
+        applyServerItem(updated);
+        return updated;
+      } catch (error) {
+        reportError(error);
+        return null;
+      }
+    },
+    [applyServerItem, reportError],
+  );
+
   const clearCompletedItems = useCallback(async () => {
     if (!household) return false;
     const completedItems = items.filter(isItemBought);
@@ -205,6 +219,7 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
     createItem,
     saveItem,
     setItemChecked,
+    setItemStatus,
     removeItem,
     clearCompletedItems,
   };
