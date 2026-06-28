@@ -25,8 +25,10 @@ export type Database = {
           household_id: string
           id: string
           name: string
+          not_in_stock_note: string | null
           notes: string | null
           quantity: string | null
+          status: string
           store: string | null
           updated_at: string
         }
@@ -40,8 +42,10 @@ export type Database = {
           household_id: string
           id?: string
           name: string
+          not_in_stock_note?: string | null
           notes?: string | null
           quantity?: string | null
+          status?: string
           store?: string | null
           updated_at?: string
         }
@@ -55,8 +59,10 @@ export type Database = {
           household_id?: string
           id?: string
           name?: string
+          not_in_stock_note?: string | null
           notes?: string | null
           quantity?: string | null
+          status?: string
           store?: string | null
           updated_at?: string
         }
