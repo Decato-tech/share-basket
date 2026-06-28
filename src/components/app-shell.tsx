@@ -33,7 +33,7 @@ import {
   X,
   Undo2,
 } from "lucide-react";
-import { CATEGORIES, STORES, suggestCategory } from "@/lib/categories";
+import { CATEGORIES, STORES, categoryKeyFromStored, suggestCategory } from "@/lib/categories";
 import { filterGroceryItems, isGroceryValidationError, type GroceryItem } from "@/lib/grocery";
 import { Onboarding } from "@/components/onboarding";
 import { ItemEditDialog, type EditDraft } from "@/components/item-edit-dialog";
@@ -57,7 +57,7 @@ export function AppShell() {
   const [qQty, setQQty] = useState("");
   const [qStore, setQStore] = useState<string>("__none");
   const [qCustomStore, setQCustomStore] = useState("");
-  const [qCategory, setQCategory] = useState<string>("Other");
+  const [qCategory, setQCategory] = useState<string>("other");
   const [qCategoryTouched, setQCategoryTouched] = useState(false);
   const [quickAddPending, setQuickAddPending] = useState(false);
 
@@ -92,6 +92,12 @@ export function AppShell() {
   });
 
   useEffect(() => {
+    if (!qName.trim()) {
+      setQCategory("other");
+      setQCategoryTouched(false);
+      return;
+    }
+
     if (!qCategoryTouched) setQCategory(suggestCategory(qName));
   }, [qName, qCategoryTouched]);
 
@@ -162,9 +168,9 @@ export function AppShell() {
   // grouping
   const groups: Record<string, GroceryItem[]> = {};
   if (view !== "all") {
-    const key = view === "category" ? "category" : "store";
     for (const it of active) {
-      const k = (it[key] as string) || (view === "store" ? "__any_store__" : "Other");
+      const k =
+        view === "category" ? categoryKeyFromStored(it.category) : it.store || "__any_store__";
       (groups[k] ||= []).push(it);
     }
   }
@@ -442,7 +448,7 @@ function ItemList({
   onEdit: (i: GroceryItem) => void;
   faded?: boolean;
 }) {
-  const { t, lang } = useT();
+  const { t } = useT();
   const catLabel = useCategoryLabel();
   const storeLabel = useStoreLabel();
   if (items.length === 0) {
