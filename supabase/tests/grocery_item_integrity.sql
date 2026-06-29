@@ -177,34 +177,34 @@ SELECT ok(
 );
 
 SELECT throws_ok(
-  $
+  $$
     UPDATE public.grocery_items
     SET checked_by = '20000000-0000-0000-0000-000000000002'
     WHERE id = '50000000-0000-0000-0000-000000000005'
-  $,
+  $$,
   '42501',
   'Check-off audit fields are managed by the database',
   'check-off audit fields cannot be changed without changing checked state'
 );
 
 SELECT throws_ok(
-  $
+  $$
     UPDATE public.grocery_items
     SET status_updated_by = '20000000-0000-0000-0000-000000000002'
     WHERE id = '50000000-0000-0000-0000-000000000005'
-  $,
+  $$,
   '42501',
   'Status audit fields are managed by the database',
   'status audit fields cannot be changed without changing item status'
 );
 
 SELECT lives_ok(
-  $
+  $$
     UPDATE public.grocery_items
     SET status = 'not_in_stock',
         not_in_stock_note = 'Try Lidl'
     WHERE id = '50000000-0000-0000-0000-000000000005'
-  $,
+  $$,
   'a member can mark an item as not in stock'
 );
 
@@ -222,11 +222,11 @@ SELECT ok(
 );
 
 SELECT lives_ok(
-  $
+  $$
     UPDATE public.grocery_items
     SET status = 'bought'
     WHERE id = '50000000-0000-0000-0000-000000000005'
-  $,
+  $$,
   'a member can change a not-in-stock item to bought'
 );
 
