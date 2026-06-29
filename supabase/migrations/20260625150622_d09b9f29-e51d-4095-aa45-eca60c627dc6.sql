@@ -20,8 +20,15 @@ $$;
 -- 2. Revoke EXECUTE on SECURITY DEFINER helpers from public/anon/authenticated.
 --    Internal helpers used only inside RLS / triggers stay callable by definer privileges.
 REVOKE EXECUTE ON FUNCTION public.generate_invite_code() FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.is_household_member(uuid, uuid) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.user_household_ids(uuid) FROM PUBLIC;
+DO $guard$
+BEGIN
+  IF to_regprocedure('public.is_household_member(uuid, uuid)') IS NOT NULL THEN
+    EXECUTE 'REVOKE EXECUTE ON FUNCTION public.is_household_member(uuid, uuid) FROM PUBLIC';
+  END IF;
+  IF to_regprocedure('public.user_household_ids(uuid)') IS NOT NULL THEN
+    EXECUTE 'REVOKE EXECUTE ON FUNCTION public.user_household_ids(uuid) FROM PUBLIC';
+  END IF;
+END $guard$;
 REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.create_household(text) FROM PUBLIC;
@@ -56,14 +63,21 @@ GRANT EXECUTE ON FUNCTION public.get_household_invite_code(uuid) TO authenticate
 ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Household members can receive realtime" ON realtime.messages;
-CREATE POLICY "Household members can receive realtime"
-ON realtime.messages
-FOR SELECT
-TO authenticated
-USING (
-  realtime.topic() ~ '^(items|settings)-[0-9a-fA-F-]{36}$'
-  AND public.is_household_member(
-    substring(realtime.topic() from position('-' in realtime.topic()) + 1)::uuid,
-    (SELECT auth.uid())
-  )
-);
+DO $guard$
+BEGIN
+  IF to_regprocedure('public.is_household_member(uuid, uuid)') IS NOT NULL THEN
+    EXECUTE $policy$
+      CREATE POLICY "Household members can receive realtime"
+      ON realtime.messages
+      FOR SELECT
+      TO authenticated
+      USING (
+        realtime.topic() ~ '^(items|settings)-[0-9a-fA-F-]{36}$'
+        AND public.is_household_member(
+          substring(realtime.topic() from position('-' in realtime.topic()) + 1)::uuid,
+          (SELECT auth.uid())
+        )
+      )
+    $policy$;
+  END IF;
+END $guard$;
