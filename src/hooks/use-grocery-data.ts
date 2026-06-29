@@ -6,13 +6,16 @@ import {
   deleteGroceryItem,
   fetchItems,
   fetchMyHousehold,
+  isItemBought,
   reconcileServerItem,
   removeMatchingItems,
   restoreRemovedItems,
   updateGroceryItem,
   updateGroceryItemChecked,
+  updateGroceryItemStatus,
   type GroceryItem,
   type GroceryItemDraft,
+  type GroceryItemStatus,
   type Household,
 } from "@/lib/grocery";
 
@@ -162,6 +165,20 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
     [applyServerItem, reportError],
   );
 
+  const setItemStatus = useCallback(
+    async (item: GroceryItem, status: GroceryItemStatus, notInStockNote?: string | null) => {
+      try {
+        const updated = await updateGroceryItemStatus(item.id, status, notInStockNote);
+        applyServerItem(updated);
+        return updated;
+      } catch (error) {
+        reportError(error);
+        return null;
+      }
+    },
+    [applyServerItem, reportError],
+  );
+
   const removeItem = useCallback(
     async (id: string) => {
       const deletedItem = items.find((item) => item.id === id);
@@ -202,6 +219,7 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
     createItem,
     saveItem,
     setItemChecked,
+    setItemStatus,
     removeItem,
     clearCompletedItems,
   };

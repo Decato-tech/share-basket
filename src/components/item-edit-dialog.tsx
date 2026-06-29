@@ -42,6 +42,8 @@ export type EditDraft = {
   store: string;
   custom_store: string;
   notes: string;
+  status: GroceryItemStatus;
+  not_in_stock_note: string;
 };
 
 export function ItemEditDialog({
@@ -67,6 +69,8 @@ export function ItemEditDialog({
     store: "",
     custom_store: "",
     notes: "",
+    status: "needed",
+    not_in_stock_note: "",
   });
   const [touchedCategory, setTouchedCategory] = useState(false);
   const [pendingAction, setPendingAction] = useState<"save" | "delete" | null>(null);
@@ -82,6 +86,8 @@ export function ItemEditDialog({
         store: isCustom ? "Other" : (item.store ?? ""),
         custom_store: isCustom ? item.store! : "",
         notes: item.notes ?? "",
+        status: getGroceryItemStatus(item),
+        not_in_stock_note: item.not_in_stock_note ?? "",
       });
       setTouchedCategory(true);
     } else {
@@ -92,6 +98,8 @@ export function ItemEditDialog({
         store: "",
         custom_store: "",
         notes: "",
+        status: "needed",
+        not_in_stock_note: "",
       });
       setTouchedCategory(false);
     }
@@ -199,7 +207,7 @@ export function ItemEditDialog({
             <Label>{t("store")}</Label>
             <Select
               value={draft.store || "__none"}
-              onValueChange={(v) => setDraft({ ...draft, store: v === "__none" ? "" : v })}
+              onValueChange={(v) => changeStore(v === "__none" ? "" : v)}
             >
               <SelectTrigger>
                 <SelectValue placeholder={t("any_store")} />
