@@ -4,6 +4,7 @@ import {
   createGroceryItem,
   deleteCompletedGroceryItems,
   deleteGroceryItem,
+  fetchCategoryOverrides,
   fetchItems,
   fetchMyHousehold,
   reconcileServerItem,
@@ -12,12 +13,14 @@ import {
   updateGroceryItem,
   updateGroceryItemChecked,
   updateGroceryItemStatus,
+  upsertCategoryOverride,
   isItemBought,
   type GroceryItem,
   type GroceryItemDraft,
   type GroceryItemStatus,
   type Household,
 } from "@/lib/grocery";
+import type { CategoryOverrideMap } from "@/lib/categories";
 
 type GroceryDataOptions = {
   onError?: (error: unknown) => void;
@@ -28,7 +31,9 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
   const [loading, setLoading] = useState(true);
   const [household, setHousehold] = useState<Household | null>(null);
   const [items, setItems] = useState<GroceryItem[]>([]);
+  const [categoryOverrides, setCategoryOverrides] = useState<CategoryOverrideMap>({});
   const itemsRequestIdRef = useRef(0);
+  const categoryOverridesRequestIdRef = useRef(0);
 
   const reportError = useCallback(
     (error: unknown) => {
@@ -46,6 +51,23 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
         return true;
       } catch (error) {
         if (requestId === itemsRequestIdRef.current) reportError(error);
+        return false;
+      }
+    },
+    [reportError],
+  );
+
+  const syncCategoryOverrides = useCallback(
+    async (householdId: string) => {
+      const requestId = ++categoryOverridesRequestIdRef.current;
+      try {
+        const nextOverrides = await fetchCategoryOverrides(householdId);
+        if (requestId === categoryOverridesRequestIdRef.current) {
+          setCategoryOverrides(nextOverrides);
+        }
+        return true;
+      } catch (error) {
+        if (requestId === categoryOverridesRequestIdRef.current) reportError(error);
         return false;
       }
     },
@@ -70,17 +92,20 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
     try {
       const nextHousehold = await fetchMyHousehold();
       setHousehold(nextHousehold);
-      if (nextHousehold) await syncItems(nextHousehold.id);
-      else {
+      if (nextHousehold) {
+        await Promise.all([syncItems(nextHousehold.id), syncCategoryOverrides(nextHousehold.id)]);
+      } else {
         itemsRequestIdRef.current += 1;
+        categoryOverridesRequestIdRef.current += 1;
         setItems([]);
+        setCategoryOverrides({});
       }
     } catch (error) {
       reportError(error);
     } finally {
       setLoading(false);
     }
-  }, [reportError, syncItems]);
+  }, [reportError, syncCategoryOverrides, syncItems]);
 
   useEffect(() => {
     void refresh();
@@ -103,10 +128,23 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
           void syncItems(household.id);
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "household_category_overrides",
+          filter: `household_id=eq.${household.id}`,
+        },
+        () => {
+          void syncCategoryOverrides(household.id);
+        },
+      )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           connectionErrorShown = false;
           void syncItems(household.id);
+          void syncCategoryOverrides(household.id);
           return;
         }
         if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !connectionErrorShown) {
@@ -117,7 +155,7 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [household, onRealtimeUnavailable, syncItems]);
+  }, [household, onRealtimeUnavailable, syncCategoryOverrides, syncItems]);
 
   const createItem = useCallback(
     async (draft: GroceryItemDraft) => {
@@ -195,6 +233,21 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
     [applyServerItem, reportError],
   );
 
+  const learnCategory = useCallback(
+    async (productName: string, category: string) => {
+      if (!household) return false;
+      try {
+        await upsertCategoryOverride(household.id, productName, category);
+        await syncCategoryOverrides(household.id);
+        return true;
+      } catch (error) {
+        reportError(error);
+        return false;
+      }
+    },
+    [household, reportError, syncCategoryOverrides],
+  );
+
   const clearCompletedItems = useCallback(async () => {
     if (!household) return false;
     const completedItems = items.filter(isItemBought);
@@ -215,11 +268,13 @@ export function useGroceryData({ onError, onRealtimeUnavailable }: GroceryDataOp
     loading,
     household,
     items,
+    categoryOverrides,
     refresh,
     createItem,
     saveItem,
     setItemChecked,
     setItemStatus,
+    learnCategory,
     removeItem,
     clearCompletedItems,
   };

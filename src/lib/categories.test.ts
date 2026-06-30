@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { categoryKeyFromStored, categoryStoredValue, suggestCategory } from "./categories.ts";
+import { categoryKeyFromStored, categoryOverrideKey, categoryStoredValue, suggestCategory } from "./categories.ts";
 
 describe("category storage compatibility", () => {
   it("stores new categories as stable keys", () => {
@@ -50,6 +50,14 @@ describe("suggestCategory", () => {
   it("uses the most specific keyword before shorter matches", () => {
     assert.equal(suggestCategory("chocolademelk"), "drinks");
     assert.equal(suggestCategory("chocolate milk"), "drinks");
+  });
+
+  it("prefers household category overrides for normalized product names", () => {
+    const overrides = { [categoryOverrideKey("halfvolle melk 1L")]: "drinks" as const };
+
+    assert.equal(categoryOverrideKey("2x pak halfvolle melk"), "halfvolle melk");
+    assert.equal(suggestCategory("halfvolle melk 1L"), "dairy");
+    assert.equal(suggestCategory("halfvolle melk 1L", overrides), "drinks");
   });
 
   it("covers the required Dutch example terms", () => {

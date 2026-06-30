@@ -107,11 +107,13 @@ export function AppShell() {
     loading,
     household,
     items,
+    categoryOverrides,
     refresh,
     createItem,
     saveItem,
     setItemChecked,
     setItemStatus,
+    learnCategory,
     removeItem,
     clearCompletedItems,
   } = useGroceryData({
@@ -126,8 +128,8 @@ export function AppShell() {
       return;
     }
 
-    if (!qCategoryTouched) setQCategory(suggestCategory(qName));
-  }, [qName, qCategoryTouched]);
+    if (!qCategoryTouched) setQCategory(suggestCategory(qName, categoryOverrides));
+  }, [categoryOverrides, qName, qCategoryTouched]);
 
   const filtered = useMemo(() => filterGroceryItems(items, search), [items, search]);
   const needed = filtered.filter(isItemNeeded);
@@ -147,6 +149,7 @@ export function AppShell() {
         custom_store: qCustomStore,
       });
       if (!item) return;
+      if (qCategoryTouched) await learnCategory(qName, qCategory);
       setQName("");
       setQQty("");
       setQCustomStore("");
@@ -207,7 +210,11 @@ export function AppShell() {
   }
 
   async function saveDraft(draft: EditDraft) {
-    return saveItem(draft);
+    const saved = await saveItem(draft);
+    if (saved && draft.category_touched) {
+      await learnCategory(draft.name, draft.category);
+    }
+    return saved;
   }
 
   async function deleteItem(id: string) {
@@ -522,6 +529,7 @@ export function AppShell() {
         item={editing}
         onSave={saveDraft}
         onDelete={editing ? deleteItem : undefined}
+        categoryOverrides={categoryOverrides}
       />
 
       <Dialog

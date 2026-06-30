@@ -25,6 +25,7 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 export type CategoryKey = Category;
+export type CategoryOverrideMap = Record<string, CategoryKey>;
 
 export const STORES = [
   "Albert Heijn",
@@ -501,6 +502,10 @@ function isIgnoredToken(token: string) {
   );
 }
 
+export function categoryOverrideKey(name: string) {
+  return normalizeText(name);
+}
+
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -515,9 +520,15 @@ const MATCHERS = Object.entries(CATEGORY_KEYWORDS)
   .filter(({ keyword }) => keyword.length > 0)
   .sort((a, b) => b.keyword.length - a.keyword.length);
 
-export function suggestCategory(name: string): CategoryKey {
+export function suggestCategory(
+  name: string,
+  categoryOverrides: CategoryOverrideMap = {},
+): CategoryKey {
   const normalized = normalizeText(name);
   if (!normalized) return "other";
+
+  const learnedCategory = categoryOverrides[normalized];
+  if (learnedCategory) return categoryKeyFromStored(learnedCategory);
 
   for (const { category, keyword } of MATCHERS) {
     const re = new RegExp(`(^|\\s)${escapeRegex(keyword)}($|\\s)`, "u");

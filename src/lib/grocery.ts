@@ -1,11 +1,13 @@
 import { supabase } from "../integrations/supabase/client.ts";
 import type { Tables, TablesInsert, TablesUpdate } from "../integrations/supabase/types.ts";
+import { categoryKeyFromStored, categoryOverrideKey, type CategoryOverrideMap } from "./categories.ts";
 import { normalizeStoreDraft } from "./stores.ts";
 
 export type GroceryItem = Tables<"grocery_items">;
 export type GroceryItemInsert = TablesInsert<"grocery_items">;
 export type GroceryItemUpdate = TablesUpdate<"grocery_items">;
 export type Household = Tables<"households">;
+export type HouseholdCategoryOverride = Tables<"household_category_overrides">;
 
 export const GROCERY_ITEM_STATUSES = ["needed", "bought", "not_in_stock"] as const;
 export type GroceryItemStatus = (typeof GROCERY_ITEM_STATUSES)[number];
@@ -248,6 +250,39 @@ export async function fetchItems(householdId: string): Promise<GroceryItem[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as GroceryItem[];
+}
+
+export async function fetchCategoryOverrides(householdId: string): Promise<CategoryOverrideMap> {
+  const { data, error } = await supabase
+    .from("household_category_overrides")
+    .select("normalized_name, category")
+    .eq("household_id", householdId);
+  if (error) throw error;
+
+  const overrides: CategoryOverrideMap = {};
+  for (const row of data ?? []) {
+    overrides[row.normalized_name] = categoryKeyFromStored(row.category);
+  }
+  return overrides;
+}
+
+export async function upsertCategoryOverride(
+  householdId: string,
+  productName: string,
+  category: string,
+): Promise<void> {
+  const normalizedName = categoryOverrideKey(productName);
+  if (!normalizedName) return;
+
+  const { error } = await supabase.from("household_category_overrides").upsert(
+    {
+      household_id: householdId,
+      normalized_name: normalizedName,
+      category: categoryKeyFromStored(category),
+    },
+    { onConflict: "household_id,normalized_name" },
+  );
+  if (error) throw error;
 }
 
 export async function createGroceryItem(

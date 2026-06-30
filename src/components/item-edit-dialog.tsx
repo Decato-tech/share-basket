@@ -28,8 +28,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORIES, STORES, categoryKeyFromStored, suggestCategory } from "@/lib/categories";
-import { getGroceryItemStatus, type GroceryItem, type GroceryItemStatus } from "@/lib/grocery";
+import {
+  CATEGORIES,
+  STORES,
+  categoryKeyFromStored,
+  suggestCategory,
+  type CategoryOverrideMap,
+} from "@/lib/categories";
+import type { GroceryItem } from "@/lib/grocery";
 import { isCustomStore } from "@/lib/stores";
 import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
 import { toast } from "sonner";
@@ -42,6 +48,7 @@ export type EditDraft = {
   store: string;
   custom_store: string;
   notes: string;
+  category_touched?: boolean;
 };
 
 export function ItemEditDialog({
@@ -50,12 +57,14 @@ export function ItemEditDialog({
   item,
   onSave,
   onDelete,
+  categoryOverrides = {},
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   item: GroceryItem | null;
   onSave: (draft: EditDraft) => Promise<boolean>;
   onDelete?: (id: string) => Promise<boolean>;
+  categoryOverrides?: CategoryOverrideMap;
 }) {
   const { t } = useT();
   const catLabel = useCategoryLabel();
@@ -69,6 +78,7 @@ export function ItemEditDialog({
     notes: "",
   });
   const [touchedCategory, setTouchedCategory] = useState(false);
+  const [categoryChanged, setCategoryChanged] = useState(false);
   const [pendingAction, setPendingAction] = useState<"save" | "delete" | null>(null);
 
   useEffect(() => {
@@ -84,6 +94,7 @@ export function ItemEditDialog({
         notes: item.notes ?? "",
       });
       setTouchedCategory(true);
+      setCategoryChanged(false);
     } else {
       setDraft({
         name: "",
@@ -94,6 +105,7 @@ export function ItemEditDialog({
         notes: "",
       });
       setTouchedCategory(false);
+      setCategoryChanged(false);
     }
   }, [item, open]);
 
@@ -107,7 +119,7 @@ export function ItemEditDialog({
     setDraft((d) => ({
       ...d,
       name,
-      category: touchedCategory ? d.category : suggestCategory(name),
+      category: touchedCategory ? d.category : suggestCategory(name, categoryOverrides),
     }));
   }
 
@@ -119,7 +131,7 @@ export function ItemEditDialog({
     if (pendingAction) return;
     setPendingAction("save");
     try {
-      if (await onSave(draft)) onOpenChange(false);
+      if (await onSave({ ...draft, category_touched: categoryChanged })) onOpenChange(false);
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -176,6 +188,7 @@ export function ItemEditDialog({
                 onValueChange={(v) => {
                   setDraft({ ...draft, category: v });
                   setTouchedCategory(true);
+                  setCategoryChanged(true);
                 }}
               >
                 <SelectTrigger>
