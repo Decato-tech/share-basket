@@ -1,6 +1,10 @@
 import { supabase } from "../integrations/supabase/client.ts";
 import type { Tables, TablesInsert, TablesUpdate } from "../integrations/supabase/types.ts";
-import { categoryKeyFromStored, categoryOverrideKey, type CategoryOverrideMap } from "./categories.ts";
+import {
+  categoryKeyFromStored,
+  categoryOverrideKey,
+  type CategoryOverrideMap,
+} from "./categories.ts";
 import { normalizeStoreDraft } from "./stores.ts";
 
 export type GroceryItem = Tables<"grocery_items">;
