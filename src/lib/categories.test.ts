@@ -2,7 +2,12 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { categoryKeyFromStored, categoryOverrideKey, categoryStoredValue, suggestCategory } from "./categories.ts";
+import {
+  categoryKeyFromStored,
+  categoryOverrideKey,
+  categoryStoredValue,
+  suggestCategory,
+} from "./categories.ts";
 
 describe("category storage compatibility", () => {
   it("stores new categories as stable keys", () => {

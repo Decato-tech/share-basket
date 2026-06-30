@@ -1,6 +1,9 @@
-type SignupSessionData = {
-  session?: unknown | null;
-} | null | undefined;
+type SignupSessionData =
+  | {
+      session?: unknown | null;
+    }
+  | null
+  | undefined;
 
 export type SignupNextStep = "enter_app" | "confirm_email";
 
