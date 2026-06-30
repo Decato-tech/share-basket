@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      household_category_overrides: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          household_id: string
+          id: string
+          normalized_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by?: string | null
+          household_id: string
+          id?: string
+          normalized_name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          household_id?: string
+          id?: string
+          normalized_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_category_overrides_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grocery_items: {
         Row: {
           added_by: string
