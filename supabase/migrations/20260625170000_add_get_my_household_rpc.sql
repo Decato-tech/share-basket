@@ -1,4 +1,4 @@
-﻿-- Allow the client to discover the signed-in user's existing household through
+-- Allow the client to discover the signed-in user's existing household through
 -- one narrow RPC. This avoids trapping users on onboarding when direct table
 -- reads are restricted by RLS or column/function permissions, while still
 -- keeping invite codes out of the response.
