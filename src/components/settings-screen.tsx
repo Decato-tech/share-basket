@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { ChevronLeft, Copy, LogOut } from "lucide-react";
+import { ChevronLeft, Copy, LogOut, Share2 } from "lucide-react";
 import {
   fetchHouseholdInviteCode,
   fetchMembers,
@@ -163,6 +163,39 @@ export function SettingsScreen() {
     toast.success(t("invite_copied"));
   }
 
+  const inviteLink =
+    inviteCode && typeof window !== "undefined"
+      ? `${window.location.origin}/join?code=${encodeURIComponent(inviteCode)}`
+      : null;
+
+  async function copyInviteLink() {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      toast.success(t("link_copied"));
+    } catch {
+      toast.error(t("link_copied"));
+    }
+  }
+
+  async function shareInvite() {
+    if (!inviteLink) return;
+    const text = `${t("share_message")} ${inviteLink}`;
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await (navigator as Navigator & { share: (data: ShareData) => Promise<void> }).share({
+          title: t("invite_share_title"),
+          text,
+          url: inviteLink,
+        });
+        return;
+      } catch {
+        // fall through to clipboard fallback
+      }
+    }
+    await copyInviteLink();
+  }
+
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
@@ -243,8 +276,10 @@ export function SettingsScreen() {
             {inviteCode ? (
               <section className="bg-card border rounded-2xl shadow-sm p-4 space-y-3">
                 <h2 className="text-sm font-semibold text-muted-foreground">
-                  {t("invite_code_label")}
+                  {t("invite_members")}
                 </h2>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">{t("invite_code_label")}</Label>
                 <button
                   onClick={copyCode}
                   className="w-full flex items-center justify-between rounded-xl bg-muted px-4 py-3 active:scale-[0.99] transition"
@@ -254,6 +289,38 @@ export function SettingsScreen() {
                   </span>
                   <Copy className="h-5 w-5 text-muted-foreground" />
                 </button>
+                </div>
+                {inviteLink ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">{t("invite_link")}</Label>
+                    <div className="rounded-xl bg-muted px-3 py-2 text-xs break-all font-mono">
+                      {inviteLink}
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          void copyInviteLink();
+                        }}
+                        className="flex-1 rounded-xl min-h-11"
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        {t("copy_invite_link")}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          void shareInvite();
+                        }}
+                        className="flex-1 rounded-xl min-h-11"
+                      >
+                        <Share2 className="h-4 w-4 mr-2" />
+                        {t("share_invite")}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
                 <p className="text-xs text-muted-foreground">{t("invite_share_hint")}</p>
               </section>
             ) : null}
