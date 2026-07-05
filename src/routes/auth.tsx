@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ShoppingBasket } from "lucide-react";
 import { useT, type Lang } from "@/lib/i18n";
 import { getSignupNextStep } from "@/lib/auth";
+import { PENDING_INVITE_KEY } from "./join";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -33,9 +34,25 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
 
+  function consumePendingInviteRedirect(): boolean {
+    try {
+      const pending = window.localStorage.getItem(PENDING_INVITE_KEY);
+      if (pending) {
+        window.localStorage.removeItem(PENDING_INVITE_KEY);
+        navigate({ to: "/join", search: { code: pending } });
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/app" });
+      if (data.session) {
+        if (!consumePendingInviteRedirect()) navigate({ to: "/app" });
+      }
     });
   }, [navigate]);
 
@@ -64,7 +81,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-      navigate({ to: "/app" });
+      if (!consumePendingInviteRedirect()) navigate({ to: "/app" });
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
