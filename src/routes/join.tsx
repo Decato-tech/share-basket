@@ -82,9 +82,11 @@ function JoinPage() {
       // Lookup household name for confirmation (best effort)
       let householdName: string | null = null;
       try {
-        const { data } = await supabase.rpc("get_household_name_by_invite_code" as never, {
-          _code: code,
-        } as never);
+        const rpc = (supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: unknown }>);
+        const { data } = await rpc("get_household_name_by_invite_code", { _code: code });
         if (typeof data === "string" && data.length > 0) householdName = data;
         else if (data === null) {
           if (!cancelled) setScreen({ kind: "invalid" });
