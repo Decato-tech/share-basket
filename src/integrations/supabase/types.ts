@@ -158,6 +158,10 @@ export type Database = {
         Args: { _household_id: string }
         Returns: string
       }
+      get_household_name_by_invite_code: {
+        Args: { _code: string }
+        Returns: string
+      }
       get_my_household: {
         Args: never
         Returns: {
