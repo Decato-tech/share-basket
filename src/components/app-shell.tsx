@@ -78,6 +78,7 @@ export function AppShell() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [notInStockItem, setNotInStockItem] = useState<GroceryItem | null>(null);
   const [notInStockNote, setNotInStockNote] = useState("");
+  const [notInStockPending, setNotInStockPending] = useState(false);
 
   // quick add
   const [qName, setQName] = useState("");
@@ -198,14 +199,20 @@ export function AppShell() {
   function openNotInStockDialog(item: GroceryItem) {
     setNotInStockItem(item);
     setNotInStockNote(item.not_in_stock_note ?? "");
+    setNotInStockPending(false);
   }
 
   async function saveNotInStock() {
-    if (!notInStockItem) return;
-    const updated = await changeItemStatus(notInStockItem, "not_in_stock", notInStockNote);
-    if (updated) {
-      setNotInStockItem(null);
-      setNotInStockNote("");
+    if (!notInStockItem || notInStockPending) return;
+    setNotInStockPending(true);
+    try {
+      const updated = await changeItemStatus(notInStockItem, "not_in_stock", notInStockNote);
+      if (updated) {
+        setNotInStockItem(null);
+        setNotInStockNote("");
+      }
+    } finally {
+      setNotInStockPending(false);
     }
   }
 
@@ -535,7 +542,7 @@ export function AppShell() {
       <Dialog
         open={notInStockItem !== null}
         onOpenChange={(open) => {
-          if (!open) setNotInStockItem(null);
+          if (!open && !notInStockPending) setNotInStockItem(null);
         }}
       >
         <DialogContent className="rounded-2xl sm:max-w-md">
@@ -551,14 +558,25 @@ export function AppShell() {
               value={notInStockNote}
               onChange={(e) => setNotInStockNote(e.target.value)}
               placeholder={t("try_another_store")}
+              disabled={notInStockPending}
               rows={3}
             />
           </div>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setNotInStockItem(null)}>
+            <Button
+              variant="outline"
+              onClick={() => setNotInStockItem(null)}
+              disabled={notInStockPending}
+            >
               {t("cancel")}
             </Button>
-            <Button onClick={saveNotInStock}>{t("mark_not_in_stock")}</Button>
+            <Button
+              onClick={saveNotInStock}
+              disabled={notInStockPending}
+              aria-busy={notInStockPending}
+            >
+              {notInStockPending ? t("please_wait") : t("mark_not_in_stock")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
