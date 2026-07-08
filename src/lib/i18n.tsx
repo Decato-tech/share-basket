@@ -143,6 +143,7 @@ const dict = {
   invite_link: { en: "Invite link", nl: "Uitnodigingslink" },
   copy_invite_link: { en: "Copy invite link", nl: "Uitnodigingslink kopiëren" },
   link_copied: { en: "Link copied", nl: "Link gekopieerd" },
+  link_copy_failed: { en: "Could not copy link", nl: "Link kon niet worden gekopieerd" },
   share_invite: { en: "Share invite", nl: "Uitnodiging delen" },
   share_message: {
     en: "Join my household grocery list here:",
@@ -167,7 +168,10 @@ const dict = {
     en: "You joined the household.",
     nl: "Je bent lid geworden van het huishouden.",
   },
-  invite_already_in_household_title: { en: "Already in a household", nl: "Al lid van een huishouden" },
+  invite_already_in_household_title: {
+    en: "Already in a household",
+    nl: "Al lid van een huishouden",
+  },
   invite_already_in_household_desc: {
     en: "You're already part of a household. Each account can only belong to one household at a time.",
     nl: "Je bent al lid van een huishouden. Elk account kan maar bij één huishouden tegelijk horen.",
