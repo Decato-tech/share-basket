@@ -62,7 +62,7 @@ import {
 } from "@/lib/grocery";
 import { Onboarding } from "@/components/onboarding";
 import { ItemEditDialog, type EditDraft } from "@/components/item-edit-dialog";
-import { householdRpcErrorMessage } from "@/lib/household-errors";
+import { userErrorMessage } from "@/lib/user-errors";
 import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
 import { useGroceryData } from "@/hooks/use-grocery-data";
 
@@ -95,7 +95,7 @@ export function AppShell() {
         toast.error(t("please_enter_custom_store"));
         return;
       }
-      toast.error(householdRpcErrorMessage((error as Error).message, lang));
+      toast.error(userErrorMessage(error, lang, "grocery"));
     },
     [lang, t],
   );

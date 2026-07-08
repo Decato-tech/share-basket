@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useT, type Lang } from "@/lib/i18n";
+import { userErrorMessage } from "@/lib/user-errors";
 
 export function SettingsScreen() {
   const navigate = useNavigate();
@@ -76,14 +77,14 @@ export function SettingsScreen() {
           navigate({ to: "/app" });
         }
       } catch (error) {
-        const message = (error as Error).message;
+        const message = userErrorMessage(error, lang, "settings_load");
         setLoadError(message);
         toast.error(message, { id: "settings-load-error" });
       } finally {
         setLoading(false);
       }
     },
-    [navigate, t],
+    [lang, navigate, t],
   );
 
   useEffect(() => {
@@ -135,7 +136,7 @@ export function SettingsScreen() {
       .from("households")
       .update({ name: name.trim() })
       .eq("id", household.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(userErrorMessage(error, lang, "settings_save"));
     toast.success(t("saved"));
     void load();
   }
@@ -148,7 +149,7 @@ export function SettingsScreen() {
   async function leaveHousehold() {
     if (!household) return;
     const { error } = await supabase.rpc("leave_current_household");
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(userErrorMessage(error, lang, "settings_leave"));
     toast.success(t("left_household"));
     loadedHouseholdIdRef.current = null;
     setHousehold(null);
@@ -174,7 +175,7 @@ export function SettingsScreen() {
       await navigator.clipboard.writeText(inviteLink);
       toast.success(t("link_copied"));
     } catch {
-      toast.error(t("link_copied"));
+      toast.error(t("link_copy_failed"));
     }
   }
 
@@ -280,15 +281,15 @@ export function SettingsScreen() {
                 </h2>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">{t("invite_code_label")}</Label>
-                <button
-                  onClick={copyCode}
-                  className="w-full flex items-center justify-between rounded-xl bg-muted px-4 py-3 active:scale-[0.99] transition"
-                >
-                  <span className="font-mono text-2xl tracking-widest font-semibold">
-                    {inviteCode}
-                  </span>
-                  <Copy className="h-5 w-5 text-muted-foreground" />
-                </button>
+                  <button
+                    onClick={copyCode}
+                    className="w-full flex items-center justify-between rounded-xl bg-muted px-4 py-3 active:scale-[0.99] transition"
+                  >
+                    <span className="font-mono text-2xl tracking-widest font-semibold">
+                      {inviteCode}
+                    </span>
+                    <Copy className="h-5 w-5 text-muted-foreground" />
+                  </button>
                 </div>
                 {inviteLink ? (
                   <div className="space-y-1.5">

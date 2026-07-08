@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ShoppingBasket } from "lucide-react";
 import { useT, type Lang } from "@/lib/i18n";
 import { getSignupNextStep } from "@/lib/auth";
+import { userErrorMessage } from "@/lib/user-errors";
 import { PENDING_INVITE_KEY } from "./join";
 
 export const Route = createFileRoute("/auth")({
@@ -83,7 +84,7 @@ function AuthPage() {
       }
       if (!consumePendingInviteRedirect()) navigate({ to: "/app" });
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(userErrorMessage(err, lang, "auth"));
     } finally {
       setLoading(false);
     }

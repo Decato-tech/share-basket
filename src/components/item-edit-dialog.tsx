@@ -38,6 +38,7 @@ import {
 import type { GroceryItem } from "@/lib/grocery";
 import { isCustomStore } from "@/lib/stores";
 import { useT, useCategoryLabel, useStoreLabel } from "@/lib/i18n";
+import { userErrorMessage } from "@/lib/user-errors";
 import { toast } from "sonner";
 
 export type EditDraft = {
@@ -66,7 +67,7 @@ export function ItemEditDialog({
   onDelete?: (id: string) => Promise<boolean>;
   categoryOverrides?: CategoryOverrideMap;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const catLabel = useCategoryLabel();
   const storeLabel = useStoreLabel();
   const [draft, setDraft] = useState<EditDraft>({
@@ -133,7 +134,7 @@ export function ItemEditDialog({
     try {
       if (await onSave({ ...draft, category_touched: categoryChanged })) onOpenChange(false);
     } catch (error) {
-      toast.error((error as Error).message);
+      toast.error(userErrorMessage(error, lang, "item_save"));
     } finally {
       setPendingAction(null);
     }
@@ -145,7 +146,7 @@ export function ItemEditDialog({
     try {
       if (await onDelete(item.id)) onOpenChange(false);
     } catch (error) {
-      toast.error((error as Error).message);
+      toast.error(userErrorMessage(error, lang, "item_delete"));
     } finally {
       setPendingAction(null);
     }
