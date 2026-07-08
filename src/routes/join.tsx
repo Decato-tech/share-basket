@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { ShoppingBasket, LogOut } from "lucide-react";
 import { useT, type Lang } from "@/lib/i18n";
 import { fetchMyHousehold } from "@/lib/grocery";
-import { householdRpcErrorMessage } from "@/lib/household-errors";
+import { householdRpcErrorKey, householdRpcErrorMessage } from "@/lib/household-errors";
 
 export const PENDING_INVITE_KEY = "hg.pendingInviteCode";
 
@@ -36,6 +36,7 @@ type Screen =
   | { kind: "sign_in" }
   | { kind: "confirm"; householdName: string | null }
   | { kind: "already_in_household" }
+  | { kind: "rate_limited" }
   | { kind: "joining" };
 
 function JoinPage() {
@@ -82,11 +83,23 @@ function JoinPage() {
       // Lookup household name for confirmation (best effort)
       let householdName: string | null = null;
       try {
-        const rpc = (supabase.rpc as unknown as (
+        const rpc = supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
-        ) => Promise<{ data: unknown; error: unknown }>);
-        const { data } = await rpc("get_household_name_by_invite_code", { _code: code });
+        ) => Promise<{ data: unknown; error: unknown }>;
+        const { data, error } = await rpc("get_household_name_by_invite_code", {
+          _code: code,
+        });
+        if (
+          error &&
+          typeof error === "object" &&
+          "message" in error &&
+          typeof error.message === "string" &&
+          householdRpcErrorKey(error.message) === "invite_rate_limited"
+        ) {
+          if (!cancelled) setScreen({ kind: "rate_limited" });
+          return;
+        }
         if (typeof data === "string" && data.length > 0) householdName = data;
         else if (data === null) {
           if (!cancelled) setScreen({ kind: "invalid" });
@@ -108,17 +121,25 @@ function JoinPage() {
   async function doJoin() {
     if (!code) return;
     setScreen({ kind: "joining" });
-    const { error } = await supabase.rpc("join_household_by_code", { _code: code });
+    const { data, error } = await supabase.rpc("join_household_by_code", { _code: code });
     if (error) {
       const message = householdRpcErrorMessage(error.message, lang);
       toast.error(message);
-      if (/already belongs to a household/i.test(error.message)) {
+      const key = householdRpcErrorKey(error.message);
+      if (key === "already_in_household") {
         setScreen({ kind: "already_in_household" });
-      } else if (/invalid invite code/i.test(error.message)) {
+      } else if (key === "invalid_invite_code") {
         setScreen({ kind: "invalid" });
+      } else if (key === "invite_rate_limited") {
+        setScreen({ kind: "rate_limited" });
       } else {
         setScreen({ kind: "confirm", householdName: null });
       }
+      return;
+    }
+    if (!data) {
+      toast.error(householdRpcErrorMessage("Invalid invite code", lang));
+      setScreen({ kind: "invalid" });
       return;
     }
     try {
@@ -192,6 +213,19 @@ function JoinPage() {
                   {t("go_back")}
                 </Button>
               </div>
+            </>
+          ) : null}
+
+          {screen.kind === "rate_limited" ? (
+            <>
+              <h2 className="text-lg font-semibold">{t("invite_rate_limited_title")}</h2>
+              <p className="text-sm text-muted-foreground">{t("invite_rate_limited_desc")}</p>
+              <Button
+                onClick={() => navigate({ to: "/app" })}
+                className="w-full min-h-11 rounded-xl"
+              >
+                {t("go_to_app")}
+              </Button>
             </>
           ) : null}
 

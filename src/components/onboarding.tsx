@@ -45,11 +45,12 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
     if (!code.trim() || loading) return;
     setLoading(true);
     setErrorMessage(null);
-    const { error } = await supabase.rpc("join_household_by_code", {
+    const { data, error } = await supabase.rpc("join_household_by_code", {
       _code: code.trim().toUpperCase(),
     });
     setLoading(false);
     if (error) return showError(error);
+    if (!data) return showError(new Error("Invalid invite code"));
     toast.success(t("joined_household"));
     await onDone();
   }
@@ -121,10 +122,10 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
                 <Label htmlFor="hcode">{t("invite_code")}</Label>
                 <Input
                   id="hcode"
-                  placeholder="ABC123"
+                  placeholder="ABCD1234"
                   value={code}
                   onChange={(event) => setCode(event.target.value.toUpperCase())}
-                  maxLength={6}
+                  maxLength={8}
                   disabled={loading}
                   className="uppercase tracking-widest text-center text-lg"
                 />

@@ -182,6 +182,14 @@ const dict = {
     en: "This invite link is invalid or no longer works. Ask the person who invited you for a new link.",
     nl: "Deze uitnodigingslink is ongeldig of werkt niet meer. Vraag de persoon die je heeft uitgenodigd om een nieuwe link.",
   },
+  invite_rate_limited_title: {
+    en: "Too many attempts",
+    nl: "Te veel pogingen",
+  },
+  invite_rate_limited_desc: {
+    en: "Too many invalid invite codes were tried. Please wait 15 minutes and try again.",
+    nl: "Er zijn te veel ongeldige uitnodigingscodes geprobeerd. Wacht 15 minuten en probeer het opnieuw.",
+  },
   go_back: { en: "Go back", nl: "Terug" },
   go_to_app: { en: "Go to app", nl: "Ga naar de app" },
   members: { en: "Members", nl: "Leden" },
