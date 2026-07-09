@@ -11,11 +11,7 @@ export type GroceryItem = Tables<"grocery_items">;
 export type GroceryItemInsert = TablesInsert<"grocery_items">;
 export type GroceryItemUpdate = TablesUpdate<"grocery_items">;
 export type Household = Tables<"households">;
-export type HouseholdCategoryOverride = {
-  household_id: string;
-  normalized_name: string;
-  category: string;
-};
+export type HouseholdCategoryOverride = Tables<"household_category_overrides">;
 
 export const GROCERY_ITEM_STATUSES = ["needed", "bought", "not_in_stock"] as const;
 export type GroceryItemStatus = (typeof GROCERY_ITEM_STATUSES)[number];
@@ -261,7 +257,7 @@ export async function fetchItems(householdId: string): Promise<GroceryItem[]> {
 }
 
 export async function fetchCategoryOverrides(householdId: string): Promise<CategoryOverrideMap> {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("household_category_overrides")
     .select("normalized_name, category")
     .eq("household_id", householdId);
@@ -282,7 +278,7 @@ export async function upsertCategoryOverride(
   const normalizedName = categoryOverrideKey(productName);
   if (!normalizedName) return;
 
-  const { error } = await (supabase as any).from("household_category_overrides").upsert(
+  const { error } = await supabase.from("household_category_overrides").upsert(
     {
       household_id: householdId,
       normalized_name: normalizedName,
