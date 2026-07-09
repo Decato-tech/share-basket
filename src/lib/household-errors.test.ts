@@ -17,6 +17,17 @@ describe("householdRpcErrorKey", () => {
     assert.equal(householdRpcErrorKey("Not authenticated"), "not_authenticated");
   });
 
+  it("recognizes invite-code throttling", () => {
+    assert.equal(
+      householdRpcErrorKey("Too many invalid invite code attempts. Try again later."),
+      "invite_rate_limited",
+    );
+    assert.match(
+      householdRpcErrorMessage("Too many invalid invite code attempts. Try again later.", "nl"),
+      /15 minuten/i,
+    );
+  });
+
   it("recognizes household lookup schema cache misses", () => {
     assert.equal(
       householdRpcErrorKey(

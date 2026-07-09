@@ -1,6 +1,7 @@
 export type HouseholdRpcErrorKey =
   | "already_in_household"
   | "invalid_invite_code"
+  | "invite_rate_limited"
   | "not_authenticated"
   | "household_lookup_unavailable";
 
@@ -18,6 +19,10 @@ const householdRpcErrorMessages: Record<
     en: "That invite code is not valid.",
     nl: "Die uitnodigingscode is niet geldig.",
   },
+  invite_rate_limited: {
+    en: "Too many invalid invite codes were tried. Please wait 15 minutes and try again.",
+    nl: "Er zijn te veel ongeldige uitnodigingscodes geprobeerd. Wacht 15 minuten en probeer het opnieuw.",
+  },
   not_authenticated: {
     en: "Please sign in again and retry.",
     nl: "Log opnieuw in en probeer het nog eens.",
@@ -33,6 +38,10 @@ export function householdRpcErrorKey(message: string): HouseholdRpcErrorKey | nu
 
   if (normalized.includes("already belongs to a household")) {
     return "already_in_household";
+  }
+
+  if (normalized.includes("too many invalid invite code attempts")) {
+    return "invite_rate_limited";
   }
 
   if (normalized.includes("invalid invite code")) {
